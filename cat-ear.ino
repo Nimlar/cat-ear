@@ -74,24 +74,9 @@ void setup()
   
 }
 
-void loop() 
+//1
+void mvt_triste(void)
 {
-  // Check if a client has connected
-  WiFiClient client = server.available();
-  if (!client) {
-    return;
-  }
-
-  // Read the first line of the request
-  String request = client.readStringUntil('\r');
-  client.flush();
-
-
-
-// Match the request
-
-if (request.indexOf("/mvt1/") != -1)  {
-
   const byte MaxAngleShift = 30;
   unsigned int MoveDelay = 5;
   unsigned int PosDelay = 10000;
@@ -121,12 +106,12 @@ if (request.indexOf("/mvt1/") != -1)  {
 
   LeftVer.detach();
   RightVer.detach();
-
 }
- 
-else if (request.indexOf("/mvt2/") != -1)  {
 
-  const byte MaxAngleShift = 100;
+//2
+void mvt_penaud(void)
+{
+   const byte MaxAngleShift = 100;
   const byte MaxAngleShift2 = 20;
   unsigned int MoveDelay = 10;
   unsigned int PosDelay = 5000;
@@ -171,10 +156,13 @@ else if (request.indexOf("/mvt2/") != -1)  {
   RightVer.detach();
   LeftAng.detach();
   RightAng.detach();
+ 
 }
 
-else if (request.indexOf("/mvt3/") != -1)  {
-
+//3
+void mvt_gauche(void)
+{
+	
   unsigned int MoveDelay = 10;
   byte AnglePos;
   
@@ -228,8 +216,9 @@ else if (request.indexOf("/mvt3/") != -1)  {
   LeftVer.detach();
 }
 
-else if (request.indexOf("/mvt4/") != -1)  {
-
+//4
+void mvt_droit(void)
+{
   unsigned int MoveDelay = 10;
   byte AnglePos;
   
@@ -281,10 +270,12 @@ else if (request.indexOf("/mvt4/") != -1)  {
 
   RightAng.detach();
   RightVer.detach();
+
 }
 
-else if (request.indexOf("/mvt5/") != -1)  {
-
+//5
+void mvt_aguet(void)
+{
   unsigned int MoveDelay = 10;
   byte AngleLeftPos;
   byte AngleRightPos;
@@ -355,11 +346,11 @@ else if (request.indexOf("/mvt5/") != -1)  {
   LeftVer.detach();
   RightAng.detach();
   RightVer.detach();
-
 }
 
-else if (request.indexOf("/mvt6/") != -1)  {
-
+//6
+void mvt_content(void)
+{
   const byte MaxAngleShift = 50;
   unsigned int PosDelay = 300;
 
@@ -397,9 +388,12 @@ else if (request.indexOf("/mvt6/") != -1)  {
   LeftVer.detach();
   RightVer.detach();
 
+
 }
 
-else if (request.indexOf("/mvt7/") != -1)  {
+// 7
+void mvt_ecoute(void)
+{
 
   const byte MaxAngleShift = 100;
   unsigned int MoveDelay = 10;
@@ -438,10 +432,12 @@ else if (request.indexOf("/mvt7/") != -1)  {
 
   LeftAng.detach();
   RightAng.detach();
-    
+   
 }
- 
-else if (request.indexOf("/mvt8/") != -1)  {
+
+// 8
+void mvt_surprise(void)
+{
 
   const byte MaxAngleShift = 35;
   
@@ -466,10 +462,12 @@ else if (request.indexOf("/mvt8/") != -1)  {
   LeftVer.detach();
   RightVer.detach();
 
+
 }
 
-else if (request.indexOf("/mvt9/") != -1)  {
-
+// 9
+void mvt_baisse(void)
+{
   const byte MaxAngleShift = 30;
   unsigned int MoveDelay = 5;
   unsigned int PosDelay = 500;
@@ -496,11 +494,12 @@ else if (request.indexOf("/mvt9/") != -1)  {
   LeftVer.detach();
   RightVer.detach();
 
-  
+ 
 }
 
-else if (request.indexOf("/mvt10/") != -1)  {
-
+// 10
+void mvt_tourne(void)
+{
   const byte MaxAngleShift = 100;
   unsigned int MoveDelay = 10;
   unsigned int PosDelay = 500;
@@ -517,11 +516,12 @@ else if (request.indexOf("/mvt10/") != -1)  {
   }
   LeftAng.detach();
   RightAng.detach();
-  
+ 
 }
 
-else if (request.indexOf("/mvt11/") != -1)  {
-
+// 11
+void mvt_reset(void)
+{
   LeftAng.attach(LeftAngPin);
   RightAng.attach(RightAngPin);
   LeftVer.attach(LeftVerPin);
@@ -538,7 +538,46 @@ else if (request.indexOf("/mvt11/") != -1)  {
   RightAng.detach();
   RightVer.detach();  
 }
- 
+
+void loop() 
+{
+  // Check if a client has connected
+  WiFiClient client = server.available();
+  if (!client) {
+    return;
+  }
+
+  // Read the first line of the request
+  String request = client.readStringUntil('\r');
+  client.flush();
+
+
+
+  // Match the request
+  if (request.indexOf("/mvt1/") != -1)  {
+    mvt_triste();
+  } else if (request.indexOf("/mvt2/") != -1)  {
+    mvt_penaud();
+  } else if (request.indexOf("/mvt3/") != -1)  {
+    mvt_gauche();
+  } else if (request.indexOf("/mvt4/") != -1)  {
+    mvt_droit();
+  } else if (request.indexOf("/mvt5/") != -1)  {
+    mvt_aguet();
+  } else if (request.indexOf("/mvt6/") != -1)  {
+    mvt_content();
+  } else if (request.indexOf("/mvt7/") != -1)  {
+    mvt_ecoute(); 
+  } else if (request.indexOf("/mvt8/") != -1)  {
+    mvt_surprise();
+  } else if (request.indexOf("/mvt9/") != -1)  {
+    mvt_baisse();
+  } else if (request.indexOf("/mvt10/") != -1)  {
+    mvt_tourne();
+  } else if (request.indexOf("/mvt11/") != -1)  {
+    mvt_reset();
+  }
+   
   // Return the response
  String header = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>";
         header += "<head>";
