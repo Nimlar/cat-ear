@@ -1,3 +1,5 @@
+//arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2 .
+
 #include <ESP8266WiFi.h>
 #include <Servo.h>
 
@@ -7,22 +9,39 @@
 
 const char WiFiAPPSK[] = "oreilles"; //password wifi
 
-#define       LeftVerPin                     0  //D3 blanc
-#define       LeftAngPin                     2  //D4 bleu
-#define       RightVerPin                    16 //D0 Rouge
-#define       RightAngPin                    5  //D1 noir
+#define       LeftAltPin                     0  //D3 blanc
+#define       LeftAziPin                     2  //D4 bleu
+#define       RightAltPin                    16 //D0 Rouge
+#define       RightAziPin                    5  //D1 noir
 
 
-#define       INIT_EARS_POS                  90
-#define       INIT_LEFT_VER_POS              50 
-#define       INIT_RIGHT_VER_POS             85 
-#define       INIT_LEFT_ANG_POS              100
-#define       INIT_RIGHT_ANG_POS             100
+#define       INIT_LEFT_ALT              50
+#define       INIT_RIGHT_ALT             85
+#define       INIT_LEFT_AZI              100
+#define       INIT_RIGHT_AZI             100
 
-Servo LeftVer;
-Servo LeftAng;
-Servo RightVer;
-Servo RightAng;
+template <typename T>
+T sign(T val) {
+    return T((val>0)-(val<0));
+}
+
+
+struct target {
+    int dest;
+    int inter;
+};
+struct ear_target {
+    struct target azi;
+    struct target alt;
+};
+struct ears_target {
+    struct ear_target left;
+    struct ear_target right;
+    struct ears_target *next;
+};
+
+#define NB_MVT 5
+struct ears_target mvt_table[NB_MVT];
 
 /////////////////////
 // Wifi Definitions //
@@ -30,516 +49,248 @@ Servo RightAng;
 
 WiFiServer server(80);
 
-void setup() 
+class HalfEar {
+
+    Servo _s;
+    int _dest;
+    int _cur;
+    int _inter;
+    unsigned long _last;
+    int _pin;
+
+    void _moveto(int angle, unsigned long now) {
+        this->_cur = angle;
+        this->_last = now;
+        if (!this->_s.attached()) {
+            /* ERROR */
+        }
+        this->_s.write(angle);
+    }
+
+    public:
+    HalfEar(int pin) : _pin(pin) {};
+
+    void attach() {
+        this->_s.attach(this->_pin);
+    }
+    void detach() {
+        this->_s.detach();
+    }
+
+    /*void moveto(int angle, unsigned long now) {
+        this->_moveto(angle, now);
+    }*/
+    void moveto(int angle) {
+        this->_moveto(angle, millis());
+    }
+    bool step(unsigned long now) {
+        // is it time ?
+        if (this->_last + this->_inter <= now) {
+            int incr = sign(this->_dest - this->_cur);
+            if (!incr) {
+                // end of move for this servo
+                this->_s.detach();
+                return true;
+            }
+            if (this->_inter == -1) {
+                this->moveto(this->_dest);
+            } else {
+                this->moveto(this->_cur + incr);
+            }
+        }
+        return false;
+    }
+
+    void define_move(struct target *move) {
+        this->_dest = move->dest;
+        this->_inter = move->inter;
+    }
+};
+
+class Ear {
+    HalfEar _alt;
+    HalfEar _azi;
+    public:
+    Ear(int altPin, int aziPin) : _alt(altPin), _azi(aziPin) {};
+
+    void attach() {
+        this->_azi.attach();
+        this->_alt.attach();
+    }
+    void detach() {
+        this->_azi.detach();
+        this->_alt.detach();
+    }
+
+
+    void moveto(int azimuth, int altitude) {
+        this->_azi.moveto(azimuth);
+        this->_alt.moveto(altitude);
+    }
+
+    bool step(unsigned long now) {
+        bool finish;
+        finish = this->_alt.step(now);
+        finish = finish and this->_azi.step(now);
+        return finish;
+    }
+
+    void define_move(struct ear_target *move) {
+        this->_alt.define_move(&move->alt);
+        this->_azi.define_move(&move->azi);
+    }
+};
+
+struct ears {
+    Ear left;
+    Ear right;
+    struct ears_target *move;
+
+    ears(int lAlt, int lAzi, int rAlt, int rAzi) : left(lAlt, lAzi), right(rAlt, rAzi) {};
+
+    bool step() {
+        bool finish;
+        if(move) {
+            unsigned long now = millis();
+            finish = this->left.step(now);
+            finish = finish and this->right.step(now);
+            if(finish) {
+                this->define_move(move->next);
+            }
+            return finish;
+        } else {
+            return true;
+        }
+    }
+    void define_move(struct ears_target * move) {
+        this->move = move;
+        if (move) {
+            this->left.attach();
+            this->left.define_move(&move->left);
+            this->right.attach();
+            this->right.define_move(&move->right);
+        } else {
+            this->left.detach();
+            this->right.detach();
+        }
+    }
+} ears(LeftAltPin, LeftAziPin, RightAltPin, RightAltPin) ;
+
+void setup()
 {
 
-  WiFi.mode(WIFI_AP);
+    WiFi.mode(WIFI_AP);
 
-  // Do a little work to get a unique-ish name. Append the
-  // last two bytes of the MAC (HEX'd) to "Thing-":
-  uint8_t mac[WL_MAC_ADDR_LENGTH];
-  WiFi.softAPmacAddress(mac);
-  String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
-                 String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
-  macID.toUpperCase();
-  String AP_NameString = "Neko_Mimi " + macID;
+    // Do a little work to get a unique-ish name. Append the
+    // last two bytes of the MAC (HEX'd) to "Thing-":
+    uint8_t mac[WL_MAC_ADDR_LENGTH];
+    WiFi.softAPmacAddress(mac);
+    String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
+        String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
+    macID.toUpperCase();
+    String AP_NameString = "Neko_Mimi " + macID;
 
-  char AP_NameChar[AP_NameString.length() + 1];
-  memset(AP_NameChar, 0, AP_NameString.length() + 1);
+    char AP_NameChar[AP_NameString.length() + 1];
+    memset(AP_NameChar, 0, AP_NameString.length() + 1);
 
-  for (int i=0; i<AP_NameString.length(); i++)
-    AP_NameChar[i] = AP_NameString.charAt(i);
+    for (int i=0; i<AP_NameString.length(); i++)
+        AP_NameChar[i] = AP_NameString.charAt(i);
 
-  WiFi.softAP(AP_NameChar, WiFiAPPSK);
+    WiFi.softAP(AP_NameChar, WiFiAPPSK);
 
 
-  server.begin();
- 
-  LeftVer.attach(LeftVerPin);
-  RightVer.attach(RightVerPin);
-  LeftAng.attach(LeftAngPin);
-  RightAng.attach(RightAngPin);
+    server.begin();
 
-  LeftVer.write(INIT_LEFT_VER_POS);
-  RightVer.write(INIT_RIGHT_VER_POS);
-  LeftAng.write(INIT_LEFT_ANG_POS);
-  RightAng.write(INIT_RIGHT_ANG_POS);
-  delay(300);
+    ears.left.attach();
+    ears.right.attach();
 
-  LeftAng.detach();
-  RightAng.detach();
-  LeftVer.detach();
-  RightVer.detach();  
+    ears.left.moveto(INIT_LEFT_AZI, INIT_LEFT_ALT);
+    ears.right.moveto(INIT_RIGHT_AZI, INIT_RIGHT_ALT);
+    delay(300);
 
-  
+    ears.left.detach();
+    ears.right.detach();
+
+
 }
 
 //1
 void mvt_triste(void)
 {
-  const byte MaxAngleShift = 30;
-  unsigned int MoveDelay = 5;
-  unsigned int PosDelay = 10000;
-
-  LeftVer.attach(LeftVerPin);
-  RightVer.attach(RightVerPin);
-  
-  for(byte i=0; i <= MaxAngleShift; i++)
-  {
-    RightVer.write(INIT_LEFT_VER_POS - i);
-    LeftVer.write(INIT_RIGHT_VER_POS + i);
-    delay(MoveDelay);
-  }
-  
-  for(byte i=0; i <= 3*MaxAngleShift; i++)
-  {
-    RightVer.write(INIT_LEFT_VER_POS - MaxAngleShift + i);
-    LeftVer.write(INIT_RIGHT_VER_POS + MaxAngleShift - i);
-    delay(3*MoveDelay);
-  }
-  
-  delay(PosDelay);
-
-  LeftVer.write(INIT_LEFT_VER_POS);
-  RightVer.write(INIT_RIGHT_VER_POS);
-  delay(500);
-
-  LeftVer.detach();
-  RightVer.detach();
+    mvt_table[0] = {
+        .left = { .azi = { .dest = INIT_LEFT_AZI, .inter = -1 },
+                  .alt = { .dest = INIT_LEFT_ALT, .inter = -1 },
+                },
+        .right ={ .azi = { .dest = INIT_RIGHT_AZI, .inter = -1 },
+                  .alt = { .dest = INIT_RIGHT_ALT, .inter = -1 },
+                },
+        .next = &mvt_table[1]
+    };
+    mvt_table[1] = (struct ears_target) {
+        .left = { .azi = { .dest = INIT_LEFT_AZI, .inter = 0 },
+                  .alt = { .dest = INIT_LEFT_ALT+30, .inter = 5 },
+                },
+        .right ={ .azi = { .dest = INIT_RIGHT_AZI, .inter = 0 },
+                  .alt = { .dest = INIT_RIGHT_ALT+30, .inter = 5 },
+                },
+        .next = NULL
+    };
+    ears.define_move(&mvt_table[0]);
 }
 
 //2
 void mvt_penaud(void)
 {
-   const byte MaxAngleShift = 100;
-  const byte MaxAngleShift2 = 20;
-  unsigned int MoveDelay = 10;
-  unsigned int PosDelay = 5000;
-
-  LeftAng.attach(LeftAngPin);
-  RightAng.attach(RightAngPin);
-  
-  for(byte i=0; i <= MaxAngleShift; i++)
-  {
-    LeftAng.write(INIT_LEFT_ANG_POS + i);
-    RightAng.write(INIT_RIGHT_ANG_POS - i);
-    delay(MoveDelay);
-  }
-
-  LeftVer.attach(LeftVerPin);
-  RightVer.attach(RightVerPin);
-  
-  for(byte i=0; i <= MaxAngleShift2; i++)
-  {
-    RightVer.write(INIT_LEFT_VER_POS - i);
-    LeftVer.write(INIT_RIGHT_VER_POS + i);
-    delay(MoveDelay);
-  }
-  
-  for(byte i=0; i <= 3*MaxAngleShift2; i++)
-  {
-    RightVer.write(INIT_LEFT_VER_POS - MaxAngleShift2 + i);
-    LeftVer.write(INIT_RIGHT_VER_POS + MaxAngleShift2 - i);
-    delay(3*MoveDelay);
-  }
-    delay(PosDelay);
-  
-  LeftVer.write(INIT_LEFT_VER_POS);
-  LeftAng.write(INIT_LEFT_ANG_POS);
-  RightVer.write(INIT_RIGHT_VER_POS);
-  RightAng.write(INIT_RIGHT_ANG_POS);
-
-    delay(300);
-  
-
-  LeftVer.detach();
-  RightVer.detach();
-  LeftAng.detach();
-  RightAng.detach();
- 
 }
 
 //3
 void mvt_gauche(void)
 {
-	
-  unsigned int MoveDelay = 10;
-  byte AnglePos;
-  
-  LeftAng.attach(LeftAngPin);
-  for(byte i=0; i <= 50; i++)
-  {
-    LeftAng.write(INIT_LEFT_ANG_POS + i);
-    delay(3);
-  }
-  LeftAng.detach();
-
-  AnglePos = -INIT_LEFT_VER_POS;
-  LeftVer.attach(LeftVerPin);
-  for(byte i=0; i <= 50; i++)
-  {
-    LeftVer.write(AnglePos);
-    AnglePos = INIT_LEFT_VER_POS + i;
-    delay(MoveDelay);
-  }
-   
-  for(byte i=0; i <= 15; i++)
-  {
-    LeftVer.write(AnglePos);
-    AnglePos -= i;
-    delay(MoveDelay);
-  }
-      
-  for(byte j=0; j<5; j++)
-  {
-    for(byte i=0; i <= 15; i++)
-    {
-      LeftVer.write(AnglePos);
-      AnglePos += i;
-      delay(MoveDelay);
-    }
-    
-    for(byte i=0; i <= 15; i++)
-    {
-      LeftVer.write(AnglePos);
-      AnglePos -= i;
-      delay(MoveDelay);
-    }
-  }
-
-  LeftAng.attach(LeftAngPin);
-  LeftVer.write(INIT_LEFT_VER_POS);
-  LeftAng.write(INIT_LEFT_ANG_POS);
-  delay(500);
-
-  LeftAng.detach();
-  LeftVer.detach();
 }
 
 //4
 void mvt_droit(void)
 {
-  unsigned int MoveDelay = 10;
-  byte AnglePos;
-  
-  RightAng.attach(RightAngPin);
-  for(byte i=0; i <= 50; i++)
-  {
-    RightAng.write(INIT_RIGHT_ANG_POS - i);
-    delay(3);
-  }
-  RightAng.detach();
-
-  AnglePos = -INIT_RIGHT_VER_POS;
-  RightVer.attach(RightVerPin);
-  for(byte i=0; i <= 50; i++)
-  {
-    RightVer.write(AnglePos);
-    AnglePos = INIT_RIGHT_VER_POS - i;
-    delay(MoveDelay);
-  }
-  
-  for(byte i=0; i <= 15; i++)
-  {
-    RightVer.write(AnglePos);
-    AnglePos += i;
-    delay(MoveDelay);
-  }
-    
-  for(byte j=0; j<5; j++)
-  {
-    for(byte i=0; i <= 15; i++)
-    {
-      RightVer.write(AnglePos);
-      AnglePos -= i;
-      delay(MoveDelay);
-    }
-    
-    for(byte i=0; i <= 15; i++)
-    {
-      RightVer.write(AnglePos);
-      AnglePos += i;
-      delay(MoveDelay);
-    }
-  }
-  
-  RightAng.attach(RightAngPin);
-  RightVer.write(INIT_RIGHT_VER_POS);
-  RightAng.write(INIT_RIGHT_ANG_POS);
-  delay(500);
-
-  RightAng.detach();
-  RightVer.detach();
-
 }
 
 //5
 void mvt_aguet(void)
 {
-  unsigned int MoveDelay = 10;
-  byte AngleLeftPos;
-  byte AngleRightPos;
-
-  LeftAng.attach(LeftAngPin);
-  RightAng.attach(RightAngPin);
-  for(byte i=0; i <= 50; i++)
-  {
-    LeftAng.write(INIT_LEFT_ANG_POS + i);
-    RightAng.write(INIT_RIGHT_ANG_POS - i);
-    delay(3);
-  }
-  LeftAng.detach();
-  RightAng.detach();
-
-  AngleLeftPos = INIT_LEFT_VER_POS;
-  AngleRightPos = INIT_RIGHT_VER_POS;
-  LeftVer.attach(LeftVerPin);
-  RightVer.attach(RightVerPin);
-  for(byte i=0; i <= 50; i++)
-  {
-    LeftVer.write(AngleLeftPos);
-    RightVer.write(AngleRightPos);
-    AngleLeftPos = INIT_LEFT_VER_POS + i;
-    AngleRightPos = INIT_RIGHT_VER_POS - i;
-    delay(MoveDelay);
-  }
-
-  for(byte i=0; i <= 10; i++)
-  {
-    LeftVer.write(AngleLeftPos);
-    RightVer.write(AngleRightPos);
-    AngleLeftPos -= i;
-    AngleRightPos += i;
-    delay(MoveDelay);
-  }
-
-  for(byte j=0; j<5; j++)
-  {
-    for(byte i=0; i <= 10; i++)
-    {
-      LeftVer.write(AngleLeftPos);
-      RightVer.write(AngleRightPos);
-      AngleLeftPos += i;
-      AngleRightPos -= i;
-      delay(MoveDelay);
-    }
-    
-    for(byte i=0; i <= 10; i++)
-    {
-      LeftVer.write(AngleLeftPos);
-      RightVer.write(AngleRightPos);
-      AngleLeftPos -= i;
-      AngleRightPos += i;
-      delay(MoveDelay);
-    }
-  }
-
-  LeftAng.attach(LeftAngPin);
-  RightAng.attach(RightAngPin);
-  LeftVer.write(INIT_LEFT_VER_POS);
-  LeftAng.write(INIT_LEFT_ANG_POS);
-  RightVer.write(INIT_RIGHT_VER_POS);
-  RightAng.write(INIT_RIGHT_ANG_POS);
-  delay(300);
-
-  LeftAng.detach();
-  LeftVer.detach();
-  RightAng.detach();
-  RightVer.detach();
 }
 
 //6
 void mvt_content(void)
 {
-  const byte MaxAngleShift = 50;
-  unsigned int PosDelay = 300;
-
-  byte PosLeft = INIT_LEFT_VER_POS;
-  byte PosRight = INIT_RIGHT_VER_POS;
-  
-  LeftVer.attach(LeftVerPin);
-  RightVer.attach(RightVerPin);
-
-  PosLeft -= MaxAngleShift;
-  PosRight -= MaxAngleShift;
-  LeftVer.write(PosLeft);
-  RightVer.write(PosRight);
-
-  delay(PosDelay);
-
-  for(byte i = 0; i < 2; i++)
-  {
-    PosLeft += 2*MaxAngleShift;
-    PosRight += 2*MaxAngleShift;
-    LeftVer.write(PosLeft);
-    RightVer.write(PosRight);
-    delay(PosDelay);
-    PosLeft -= 2*MaxAngleShift;
-    PosRight -= 2*MaxAngleShift;
-    LeftVer.write(PosLeft);
-    RightVer.write(PosRight);
-    delay(PosDelay);
-  }
-
-  LeftVer.write(INIT_LEFT_VER_POS);
-  RightVer.write(INIT_RIGHT_VER_POS);
-  delay(500);
-
-  LeftVer.detach();
-  RightVer.detach();
-
 
 }
 
 // 7
 void mvt_ecoute(void)
 {
-
-  const byte MaxAngleShift = 100;
-  unsigned int MoveDelay = 10;
-  unsigned int PosDelay = 500;
-
-
-
-  LeftAng.attach(LeftAngPin);
-  RightAng.attach(RightAngPin);
-  
-  for(byte i=0; i <= MaxAngleShift; i++)
-  {
-    LeftAng.write(INIT_LEFT_ANG_POS + i);
-    RightAng.write(INIT_RIGHT_ANG_POS - i);
-    delay(MoveDelay);
-  }
-
-  delay(300);
-
-  for(byte i=0; i <= MaxAngleShift; i++)
-  {
-    LeftAng.write(INIT_LEFT_ANG_POS - i);
-    RightAng.write(INIT_RIGHT_ANG_POS + i);
-    delay(MoveDelay);
-  }
-
-
-  delay(300);
-
-  LeftVer.write(INIT_LEFT_VER_POS);
-  LeftAng.write(INIT_LEFT_ANG_POS);
-  RightVer.write(INIT_RIGHT_VER_POS);
-  RightAng.write(INIT_RIGHT_ANG_POS);
-
-  delay(300);
-
-  LeftAng.detach();
-  RightAng.detach();
-   
 }
 
 // 8
 void mvt_surprise(void)
 {
 
-  const byte MaxAngleShift = 35;
-  
-  LeftVer.attach(LeftVerPin);
-  RightVer.attach(RightVerPin);
-  LeftVer.write(INIT_LEFT_VER_POS - MaxAngleShift);
-  RightVer.write(INIT_RIGHT_VER_POS + MaxAngleShift);
-  delay(1000);
-    
-  for(byte i=0; i <= MaxAngleShift; i++)
-  {
-    LeftVer.write(INIT_LEFT_VER_POS - MaxAngleShift + i);
-    RightVer.write(INIT_RIGHT_VER_POS + MaxAngleShift - i);
-    delay(30);
-  }
-  delay(5000);
-
-  LeftVer.write(INIT_LEFT_VER_POS);
-  RightVer.write(INIT_RIGHT_VER_POS);
-  delay(500);
-
-  LeftVer.detach();
-  RightVer.detach();
-
-
 }
 
 // 9
 void mvt_baisse(void)
 {
-  const byte MaxAngleShift = 30;
-  unsigned int MoveDelay = 5;
-  unsigned int PosDelay = 500;
-
-  LeftVer.attach(LeftVerPin);
-  RightVer.attach(RightVerPin);
-  
-  for(byte i=0; i <= MaxAngleShift; i++)
-  {
-    RightVer.write(INIT_LEFT_VER_POS - i);
-    LeftVer.write(INIT_RIGHT_VER_POS + i);
-    delay(MoveDelay);
-  }
-  
-  for(byte i=0; i <= 3*MaxAngleShift; i++)
-  {
-    RightVer.write(INIT_LEFT_VER_POS - MaxAngleShift + i);
-    LeftVer.write(INIT_RIGHT_VER_POS + MaxAngleShift - i);
-    delay(3*MoveDelay);
-  }
-  
-  delay(PosDelay);
-
-  LeftVer.detach();
-  RightVer.detach();
-
- 
 }
 
 // 10
 void mvt_tourne(void)
 {
-  const byte MaxAngleShift = 100;
-  unsigned int MoveDelay = 10;
-  unsigned int PosDelay = 500;
-
-  
-  LeftAng.attach(LeftAngPin);
-  RightAng.attach(RightAngPin);
-  
-  for(byte i=0; i <= MaxAngleShift; i++)
-  {
-    LeftAng.write(INIT_LEFT_ANG_POS + i);
-    RightAng.write(INIT_RIGHT_ANG_POS - i);
-    delay(MoveDelay);
-  }
-  LeftAng.detach();
-  RightAng.detach();
- 
 }
 
 // 11
 void mvt_reset(void)
 {
-  LeftAng.attach(LeftAngPin);
-  RightAng.attach(RightAngPin);
-  LeftVer.attach(LeftVerPin);
-  RightVer.attach(RightVerPin);
-
-  LeftVer.write(INIT_LEFT_VER_POS);
-  LeftAng.write(INIT_LEFT_ANG_POS);
-  RightVer.write(INIT_RIGHT_VER_POS);
-  RightAng.write(INIT_RIGHT_ANG_POS);
-  delay(2000);
-  
-  LeftAng.detach();
-  LeftVer.detach();
-  RightAng.detach();
-  RightVer.detach();  
 }
 
-void loop() 
+void loop()
 {
   // Check if a client has connected
   WiFiClient client = server.available();
@@ -567,7 +318,7 @@ void loop()
   } else if (request.indexOf("/mvt6/") != -1)  {
     mvt_content();
   } else if (request.indexOf("/mvt7/") != -1)  {
-    mvt_ecoute(); 
+    mvt_ecoute();
   } else if (request.indexOf("/mvt8/") != -1)  {
     mvt_surprise();
   } else if (request.indexOf("/mvt9/") != -1)  {
@@ -577,7 +328,9 @@ void loop()
   } else if (request.indexOf("/mvt11/") != -1)  {
     mvt_reset();
   }
-   
+
+  ears.step();
+
   // Return the response
  String header = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>";
         header += "<head>";
@@ -641,98 +394,98 @@ header += "img { ";
 header += "  vertical-align:middle;";
 header += "}";
 header += "</style>";
-header += "</head>";          
-  
+header += "</head>";
+
   client.print(header);
 
-String body = "  <body>"; 
-body += "    <div id=\"main\" class=\"container-fluid\">"; 
-body += "  <div class=\"page-header\">"; 
-body += "  </div>"; 
-body += "  <div class=\"row-fluid\">"; 
-body += "    <div class=\"span12\">"; 
-body += "      <div class=\"main ios-dl\">";     
-body += "        <span class=\"legend\"></span>"; 
-body += "        <div class=\"definition-group\">"; 
+String body = "  <body>";
+body += "    <div id=\"main\" class=\"container-fluid\">";
+body += "  <div class=\"page-header\">";
+body += "  </div>";
+body += "  <div class=\"row-fluid\">";
+body += "    <div class=\"span12\">";
+body += "      <div class=\"main ios-dl\">";
+body += "        <span class=\"legend\"></span>";
+body += "        <div class=\"definition-group\">";
 
   client.print(body);
 
-String img1 = "          <dl class=\"dl-horizontal\">"; 
-img1 += "            <dt><a href=\"/mvt1/\">Triste</a></dt>"; 
+String img1 = "          <dl class=\"dl-horizontal\">";
+img1 += "            <dt><a href=\"/mvt1/\">Triste</a></dt>";
 img1 += "          </dl>";
 
   client.print(img1);
-  
-String img2 = "          <dl class=\"dl-horizontal\">"; 
-img2 += "            <dt><a href=\"/mvt2/\">Penaud</a></dt>"; 
+
+String img2 = "          <dl class=\"dl-horizontal\">";
+img2 += "            <dt><a href=\"/mvt2/\">Penaud</a></dt>";
 img2 += "          </dl>";
 
   client.print(img2);
 
-  String img3 = "          <dl class=\"dl-horizontal\">"; 
-img3 += "            <dt><a href=\"/mvt3/\">Oreille Gauche</a></dt>"; 
+  String img3 = "          <dl class=\"dl-horizontal\">";
+img3 += "            <dt><a href=\"/mvt3/\">Oreille Gauche</a></dt>";
 img3 += "          </dl>";
 
   client.print(img3);
-  
-String img4 = "          <dl class=\"dl-horizontal\">"; 
-img4 += "            <dt><a href=\"/mvt4/\">Oreille Droite</a></dt>"; 
+
+String img4 = "          <dl class=\"dl-horizontal\">";
+img4 += "            <dt><a href=\"/mvt4/\">Oreille Droite</a></dt>";
 img4 += "          </dl>";
 
   client.print(img4);
 
-  String img5 = "          <dl class=\"dl-horizontal\">"; 
-img5 += "            <dt><a href=\"/mvt5/\">Aux aguets</a></dt>"; 
+  String img5 = "          <dl class=\"dl-horizontal\">";
+img5 += "            <dt><a href=\"/mvt5/\">Aux aguets</a></dt>";
 img5 += "          </dl>";
 
   client.print(img5);
-  
-String img6 = "          <dl class=\"dl-horizontal\">"; 
-img6 += "            <dt><a href=\"/mvt6/\">Content</a></dt>"; 
+
+String img6 = "          <dl class=\"dl-horizontal\">";
+img6 += "            <dt><a href=\"/mvt6/\">Content</a></dt>";
 img6 += "          </dl>";
 
   client.print(img6);
 
-  String img7 = "          <dl class=\"dl-horizontal\">"; 
-img7 += "            <dt><a href=\"/mvt7/\">écoute</a></dt>"; 
+  String img7 = "          <dl class=\"dl-horizontal\">";
+img7 += "            <dt><a href=\"/mvt7/\">écoute</a></dt>";
 img7 += "          </dl>";
 
   client.print(img7);
 
-    String img8 = "          <dl class=\"dl-horizontal\">"; 
-img8 += "            <dt><a href=\"/mvt8/\">Surprise</a></dt>"; 
+    String img8 = "          <dl class=\"dl-horizontal\">";
+img8 += "            <dt><a href=\"/mvt8/\">Surprise</a></dt>";
 img8 += "          </dl>";
 
   client.print(img8);
 
-    String img9 = "          <dl class=\"dl-horizontal\">"; 
-img9 += "            <dt><a href=\"/mvt9/\">Baissées</a></dt>"; 
+    String img9 = "          <dl class=\"dl-horizontal\">";
+img9 += "            <dt><a href=\"/mvt9/\">Baissées</a></dt>";
 img9 += "          </dl>";
 
   client.print(img9);
 
-    String img10 = "          <dl class=\"dl-horizontal\">"; 
-img10 += "            <dt><a href=\"/mvt10/\">Tournées</a></dt>"; 
+    String img10 = "          <dl class=\"dl-horizontal\">";
+img10 += "            <dt><a href=\"/mvt10/\">Tournées</a></dt>";
 img10 += "          </dl>";
 
   client.print(img10);
 
-      String img11 = "          <dl class=\"dl-horizontal\">"; 
-img11 += "            <dt><a href=\"/mvt11/\">Reset Origine</a></dt>"; 
+      String img11 = "          <dl class=\"dl-horizontal\">";
+img11 += "            <dt><a href=\"/mvt11/\">Reset Origine</a></dt>";
 img11 += "          </dl>";
 
   client.print(img11);
-  
-String footer = "        </div>"; 
-footer += "      </div>"; 
-footer += "    </div>"; 
-footer += "  </div>"; 
+
+String footer = "        </div>";
+footer += "      </div>";
+footer += "    </div>";
+footer += "  </div>";
 footer += "</body>";
-footer += "</html>\n"; 
-  
+footer += "</html>\n";
+
   client.print(footer);
 
-  // The client will actually be disconnected 
+  // The client will actually be disconnected
   // when the function returns and 'client' object is detroyed
 }
 
