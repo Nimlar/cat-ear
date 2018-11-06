@@ -170,20 +170,21 @@ class HalfEar {
     int _dest;
     int _cur;
     int _inter;
+    int _neuter;
     unsigned long _last;
     int _pin;
 
-    void _moveto(int angle, unsigned long now) {
-        this->_cur = angle;
+    void _moveto(int offset, unsigned long now) {
+        this->_cur = offset;
         this->_last = now;
         if (!this->_s.attached()) {
             /* ERROR */
         }
-        this->_s.write(angle);
+        this->_s.write(offset + this->_neuter);
     }
 
     public:
-    HalfEar(int pin) : _pin(pin) {};
+    HalfEar(int pin, int neuter) : _pin(pin), _neuter(neuter) {};
 
     void attach() {
         this->_s.attach(this->_pin);
@@ -195,8 +196,8 @@ class HalfEar {
     /*void moveto(int angle, unsigned long now) {
         this->_moveto(angle, now);
     }*/
-    void moveto(int angle) {
-        this->_moveto(angle, millis());
+    void moveto(int offset) {
+        this->_moveto(offset, millis());
     }
     bool step(unsigned long now) {
         // is it time ?
@@ -226,7 +227,8 @@ class Ear {
     HalfEar _alt;
     HalfEar _azi;
     public:
-    Ear(int altPin, int aziPin) : _alt(altPin), _azi(aziPin) {};
+    Ear(int altPin, int altNeuter, int aziPin, int aziNeuter) : _alt(altPin, altNeuter),
+                                                                _azi(aziPin, aziNeuter) {};
 
     void attach() {
         this->_azi.attach();
@@ -238,9 +240,9 @@ class Ear {
     }
 
 
-    void moveto(int azimuth, int altitude) {
-        this->_azi.moveto(azimuth);
-        this->_alt.moveto(altitude);
+    void moveto(int aziOffset, int altOffset) {
+        this->_azi.moveto(aziOffset);
+        this->_alt.moveto(altOffset);
     }
 
     bool step(unsigned long now) {
@@ -261,7 +263,12 @@ struct ears {
     Ear right;
     struct ears_target *move;
 
-    ears(int lAlt, int lAzi, int rAlt, int rAzi) : left(lAlt, lAzi), right(rAlt, rAzi) {};
+    ears(int lAltPin, int lAltNeuter,
+         int lAziPin, int lAziNeuter,
+         int rAltPin, int rAltNeuter,
+         int rAziPin, int rAziNeuter) :
+                left(lAltPin, lAltNeuter, lAziPin, lAziNeuter),
+                right(rAltPin, rAltNeuter, rAziPin, rAziNeuter) {};
 
     bool step() {
         bool finish;
@@ -289,7 +296,10 @@ struct ears {
             this->right.detach();
         }
     }
-} ears(LeftAltPin, LeftAziPin, RightAltPin, RightAltPin) ;
+} ears(LeftAltPin, INIT_LEFT_ALT,
+       LeftAziPin, INIT_LEFT_AZI,
+       RightAltPin, INIT_RIGHT_ALT,
+       RightAltPin, INIT_RIGHT_AZI) ;
 
 void setup()
 {
@@ -319,8 +329,8 @@ void setup()
     ears.left.attach();
     ears.right.attach();
 
-    ears.left.moveto(INIT_LEFT_AZI, INIT_LEFT_ALT);
-    ears.right.moveto(INIT_RIGHT_AZI, INIT_RIGHT_ALT);
+    ears.left.moveto(0, 0);
+    ears.right.moveto(0, 0);
     delay(300);
 
     ears.left.detach();
@@ -333,20 +343,20 @@ void setup()
 void mvt_triste(void)
 {
     mvt_table[0] = {
-        .left = { .azi = { .dest = INIT_LEFT_AZI, .inter = -1 },
-                  .alt = { .dest = INIT_LEFT_ALT, .inter = -1 },
+        .left = { .azi = { .dest = 0, .inter = -1 },
+                  .alt = { .dest = 0, .inter = -1 },
                 },
-        .right ={ .azi = { .dest = INIT_RIGHT_AZI, .inter = -1 },
-                  .alt = { .dest = INIT_RIGHT_ALT, .inter = -1 },
+        .right ={ .azi = { .dest = 0, .inter = -1 },
+                  .alt = { .dest = 0, .inter = -1 },
                 },
         .next = &mvt_table[1]
     };
-    mvt_table[1] = (struct ears_target) {
-        .left = { .azi = { .dest = INIT_LEFT_AZI, .inter = 0 },
-                  .alt = { .dest = INIT_LEFT_ALT+30, .inter = 5 },
+    mvt_table[1] = {
+        .left = { .azi = { .dest = 0, .inter = 0 },
+                  .alt = { .dest = 30, .inter = 5 },
                 },
-        .right ={ .azi = { .dest = INIT_RIGHT_AZI, .inter = 0 },
-                  .alt = { .dest = INIT_RIGHT_ALT+30, .inter = 5 },
+        .right ={ .azi = { .dest = 0, .inter = 0 },
+                  .alt = { .dest = 30, .inter = 5 },
                 },
         .next = NULL
     };
