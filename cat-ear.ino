@@ -366,6 +366,53 @@ void mvt_triste(void)
 //2
 void mvt_penaud(void)
 {
+    mvt_table[0] = {
+        .left = { .azi = { .dest = 0, .inter = -1 },
+                  .alt = { .dest = 0, .inter = -1 },
+                },
+        .right ={ .azi = { .dest = 0, .inter = -1 },
+                  .alt = { .dest = 0, .inter = -1 },
+                },
+        .next = &mvt_table[1]
+    };
+    mvt_table[1] = {
+        .left = { .azi = { .dest =100, .inter = 10 },
+                  .alt = { .dest = 0, .inter = 0 },
+                },
+        .right ={ .azi = { .dest = -100, .inter = 10 },
+                  .alt = { .dest = 0, .inter = 0 },
+                },
+        .next = &mvt_table[2]
+    };
+    mvt_table[2] = {
+        .left = { .azi = { .dest = 100, .inter = 0 },
+                  .alt = { .dest = -20, .inter = 10 },
+                },
+        .right ={ .azi = { .dest = -100, .inter = 0 },
+                  .alt = { .dest = +20, .inter = 10 },
+                },
+        .next = &mvt_table[3]
+    };
+    mvt_table[3] = {
+        .left = { .azi = { .dest = +100, .inter = 0 },
+                  .alt = { .dest = 0, .inter = 30 },
+                },
+        .right ={ .azi = { .dest = -100, .inter = 0 },
+                  .alt = { .dest = 0, .inter = 30 },
+                },
+        .next = &mvt_table[4]
+    };
+    mvt_table[4] = {
+        .left = { .azi = { .dest = 0, .inter = -1 },
+                  .alt = { .dest = 0, .inter = -1 },
+                },
+        .right ={ .azi = { .dest = 0, .inter = -1 },
+                  .alt = { .dest = 0, .inter = -1 },
+                },
+        .next = NULL
+    };
+    ears.define_move(&mvt_table[0]);
+
 }
 
 //3
