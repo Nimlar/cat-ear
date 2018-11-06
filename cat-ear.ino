@@ -3,6 +3,121 @@
 #include <ESP8266WiFi.h>
 #include <Servo.h>
 
+
+const char *http_answer=" HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n";
+const char *html_answer=R"rawHTML(
+<html>
+<head>
+<meta charset="utf-8">
+<title>Neko_Mimi</title>
+<style>
+html, body {
+  background: -webkit-linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
+  background: -moz-linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
+  background: linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
+  background-size: 10px 10px;
+}
+#main {
+  margin-bottom: 2em;
+  vertical-align:middle;
+}
+.page-header {
+  border-bottom-color: #b0b4bc;
+  font-size: 200%;
+  text-align:center;
+}
+.ios-dl .legend {
+  display: block;
+  padding: 0;
+  margin: 20px 0px 0px;
+  font-size: 21px;
+  line-height: 40px;
+  color: #8B91A5;
+  font-weight: bold;
+}
+.ios-dl .definition-group {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #b0b4bc;
+  box-shadow: 0 1px 1px 0 white, 0 1px 1px 0 #d9dbdf inset;
+}
+.ios-dl dl {
+  padding: 1em;
+  margin: 0px;
+  background: transparent;
+  border-top: 1px solid #d9dbdf;
+}
+.ios-dl dl:first-child {
+  border: none;
+}
+.ios-dl dt {
+  text-align: center;
+  font-size: 250%;
+  font-weight: bold;
+}
+a:hover, a:visited, a:link, a:active
+{
+  text-decoration: none;
+  display:block;width:100%;height:100%;
+  color:  #A0A0A0;
+  font-size: 150%;
+}
+img {
+  vertical-align:middle;
+}
+</style>
+</head>
+
+<body>
+<div id="main" class="container-fluid">
+  <div class="page-header">
+  </div>
+  <div class="row-fluid">
+    <div class="span12">
+      <div class="main ios-dl">
+        <span class="legend"></span>
+        <div class="definition-group">
+          <dl class="dl-horizontal">
+            <dt><a href="/mvt1/">Triste</a></dt>
+          </dl>
+          <dl class="dl-horizontal">
+            <dt><a href="/mvt2/">Penaud</a></dt>
+          </dl>
+          <dl class="dl-horizontal">
+            <dt><a href="/mvt3/">Oreille Gauche</a></dt>
+          </dl>
+          <dl class="dl-horizontal">
+            <dt><a href="/mvt4/">Oreille Droite</a></dt>
+          </dl>
+          <dl class="dl-horizontal">
+            <dt><a href="/mvt5/">Aux aguets</a></dt>
+          </dl>
+          <dl class="dl-horizontal">
+            <dt><a href="/mvt6/">Content</a></dt>
+          </dl>
+          <dl class="dl-horizontal">
+            <dt><a href="/mvt7/">écoute</a></dt>
+          </dl>
+          <dl class="dl-horizontal">
+            <dt><a href="/mvt8/">Surprise</a></dt>
+          </dl>
+          <dl class="dl-horizontal">
+            <dt><a href="/mvt9/">Baissées</a></dt>
+          </dl>
+          <dl class="dl-horizontal">
+            <dt><a href="/mvt10/">Tournées</a></dt>
+          </dl>
+         <dl class="dl-horizontal">
+            <dt><a href="/mvt11/">Reset Origine</a></dt>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+
+)rawHTML";
 //////////////////////
 // Pins Definitions //
 //////////////////////
@@ -298,6 +413,8 @@ void loop()
     return;
   }
 
+  ears.step();
+
   // Read the first line of the request
   String request = client.readStringUntil('\r');
   client.flush();
@@ -329,161 +446,9 @@ void loop()
     mvt_reset();
   }
 
-  ears.step();
-
   // Return the response
- String header = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>";
-        header += "<head>";
-        header += "<meta charset=\"utf-8\">";
-        header += "<title>Neko_Mimi</title>";
-
-header += "<style>";
-header += "html,";
-header += "body {";
-header += "  background: -webkit-linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);";
-header += "  background: -moz-linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);";
-header += "  background: linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);";
-header += "  background-size: 10px 10px;";
-header += "}";
-header += "#main {";
-header += "  margin-bottom: 2em;";
-header += "  vertical-align:middle;";
-header += "}";
-header += ".page-header {";
-header += "  border-bottom-color: #b0b4bc;";
-header += "  font-size: 200%;";
-header += "  text-align:center;";
-header += "}";
-header += ".ios-dl .legend {";
-header += "  display: block;";
-header += "  padding: 0;";
-header += "  margin: 20px 0px 0px;";
-header += "  font-size: 21px;";
-header += "  line-height: 40px;";
-header += "  color: #8B91A5;";
-header += "  font-weight: bold;";
-header += "}";
-header += ".ios-dl .definition-group {";
-header += "  background: #fff;";
-header += "  border-radius: 10px;";
-header += "  border: 1px solid #b0b4bc;";
-header += "  box-shadow: 0 1px 1px 0 white, 0 1px 1px 0 #d9dbdf inset;";
-header += "}";
-header += ".ios-dl dl {";
-header += "  padding: 1em;";
-header += "  margin: 0px;";
-header += "  background: transparent;";
-header += "  border-top: 1px solid #d9dbdf;";
-header += "}";
-header += ".ios-dl dl:first-child {";
-header += "  border: none;";
-header += "}";
-header += ".ios-dl dt {";
-header += "  text-align: center;";
-header += "  font-size: 250%;";
-header += "  font-weight: bold;";
-header += "}";
-header += "a:hover, a:visited, a:link, a:active";
-header += "{";
-header += "  text-decoration: none;";
-header += "  display:block;width:100%;height:100%;";
-header += "  color:  #A0A0A0;";
-header += "  font-size: 150%;";
-header += "}";
-header += "img { ";
-header += "  vertical-align:middle;";
-header += "}";
-header += "</style>";
-header += "</head>";
-
-  client.print(header);
-
-String body = "  <body>";
-body += "    <div id=\"main\" class=\"container-fluid\">";
-body += "  <div class=\"page-header\">";
-body += "  </div>";
-body += "  <div class=\"row-fluid\">";
-body += "    <div class=\"span12\">";
-body += "      <div class=\"main ios-dl\">";
-body += "        <span class=\"legend\"></span>";
-body += "        <div class=\"definition-group\">";
-
-  client.print(body);
-
-String img1 = "          <dl class=\"dl-horizontal\">";
-img1 += "            <dt><a href=\"/mvt1/\">Triste</a></dt>";
-img1 += "          </dl>";
-
-  client.print(img1);
-
-String img2 = "          <dl class=\"dl-horizontal\">";
-img2 += "            <dt><a href=\"/mvt2/\">Penaud</a></dt>";
-img2 += "          </dl>";
-
-  client.print(img2);
-
-  String img3 = "          <dl class=\"dl-horizontal\">";
-img3 += "            <dt><a href=\"/mvt3/\">Oreille Gauche</a></dt>";
-img3 += "          </dl>";
-
-  client.print(img3);
-
-String img4 = "          <dl class=\"dl-horizontal\">";
-img4 += "            <dt><a href=\"/mvt4/\">Oreille Droite</a></dt>";
-img4 += "          </dl>";
-
-  client.print(img4);
-
-  String img5 = "          <dl class=\"dl-horizontal\">";
-img5 += "            <dt><a href=\"/mvt5/\">Aux aguets</a></dt>";
-img5 += "          </dl>";
-
-  client.print(img5);
-
-String img6 = "          <dl class=\"dl-horizontal\">";
-img6 += "            <dt><a href=\"/mvt6/\">Content</a></dt>";
-img6 += "          </dl>";
-
-  client.print(img6);
-
-  String img7 = "          <dl class=\"dl-horizontal\">";
-img7 += "            <dt><a href=\"/mvt7/\">écoute</a></dt>";
-img7 += "          </dl>";
-
-  client.print(img7);
-
-    String img8 = "          <dl class=\"dl-horizontal\">";
-img8 += "            <dt><a href=\"/mvt8/\">Surprise</a></dt>";
-img8 += "          </dl>";
-
-  client.print(img8);
-
-    String img9 = "          <dl class=\"dl-horizontal\">";
-img9 += "            <dt><a href=\"/mvt9/\">Baissées</a></dt>";
-img9 += "          </dl>";
-
-  client.print(img9);
-
-    String img10 = "          <dl class=\"dl-horizontal\">";
-img10 += "            <dt><a href=\"/mvt10/\">Tournées</a></dt>";
-img10 += "          </dl>";
-
-  client.print(img10);
-
-      String img11 = "          <dl class=\"dl-horizontal\">";
-img11 += "            <dt><a href=\"/mvt11/\">Reset Origine</a></dt>";
-img11 += "          </dl>";
-
-  client.print(img11);
-
-String footer = "        </div>";
-footer += "      </div>";
-footer += "    </div>";
-footer += "  </div>";
-footer += "</body>";
-footer += "</html>\n";
-
-  client.print(footer);
+  client.print(http_answer);
+  client.print(html_answer);
 
   // The client will actually be disconnected
   // when the function returns and 'client' object is detroyed
