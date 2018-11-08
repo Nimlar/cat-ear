@@ -3,6 +3,11 @@
 #include <ESP8266WiFi.h>
 #include <Servo.h>
 
+#ifdef DEBUG_ESP_PORT
+#define P(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
+#else
+#define P(...)
+#endif
 
 const char *http_answer=" HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n";
 const char *html_answer=R"rawHTML(
@@ -196,17 +201,21 @@ class HalfEar {
         this->_last = now;
         if (!this->_s.attached()) {
             /* ERROR */
+            P("%02d SHOULD BE ATTACHED\n", this->_pin);
         }
+        P("%02d send angle = %d\n", this->_pin, offset + this->_neuter);
         this->_s.write(offset + this->_neuter);
     }
 
     public:
-    HalfEar(int pin, int neuter) : _pin(pin), _neuter(neuter) {};
+    HalfEar(int pin, int neuter) : _pin(pin), _neuter(neuter), _cur(-100) {};
 
     void attach() {
+        P("%02d Attach\n", this->_pin);
         this->_s.attach(this->_pin);
     }
     void detach() {
+        P("%02d Detach\n", this->_pin);
         this->_s.detach();
     }
 
@@ -214,14 +223,18 @@ class HalfEar {
         this->_moveto(angle, now);
     }*/
     void moveto(int offset) {
+        P("%02d half ear move to offset %d\n", this->_pin, offset);
         this->_moveto(offset, millis());
     }
     bool step(unsigned long now) {
         // is it time ?
+        P("%02d is it time now=%d, last=%d, inter=%d\n", this->_pin, now, this->_last, this->_inter);
         if (this->_last + this->_inter <= now) {
             int incr = sign(this->_dest - this->_cur);
+            P("%02d now move dest=%d, cur=%d, incr=%d\n", this->_pin, this->_dest, this->_cur, incr);
             if (!incr) {
                 // end of move for this servo
+                this->moveto(this->_dest);
                 this->_s.detach();
                 return true;
             }
@@ -231,12 +244,14 @@ class HalfEar {
                 this->moveto(this->_cur + incr);
             }
         }
+        else P("%02d not time to move\n",this->_pin);
         return false;
     }
 
     void define_move(struct target *move) {
         this->_dest = move->dest;
-        this->_inter = move->inter;
+        this->_inter = move->inter * 10;
+        P("%02d define move half-ear inter=%d dest=%d, cur=%d\n",this->_pin, this->_inter, this->_dest, this->_cur);
     }
 };
 
@@ -265,7 +280,7 @@ class Ear {
     bool step(unsigned long now) {
         bool finish;
         finish = this->_alt.step(now);
-        finish = finish and this->_azi.step(now);
+        finish = this->_azi.step(now) and finish ;
         return finish;
     }
 
@@ -292,11 +307,14 @@ struct ears {
         if(move) {
             unsigned long now = millis();
             finish = this->left.step(now);
-            finish = finish and this->right.step(now);
+            finish = this->right.step(now) and finish ;
             if(finish) {
-                if (move->i-- <= 0) {
+                P("finish move i=%d, count=%d\n", move->i, move->count);
+                if (--(move->i) <= 0) {
+                    P("next move %p\n", move->next);
                     this->define_move(move->next);
                 } else {
+                    P("next loop move %p\n", move->next_if_loop);
                     this->define_move(move->next_if_loop);
                 }
 
@@ -306,7 +324,7 @@ struct ears {
             return true;
         }
     }
-    void define_move(struct ears_target * move) {
+    void define_move(struct ears_target* move) {
         this->move = move;
         if (move) {
             if (move->i <= 0)
@@ -323,7 +341,7 @@ struct ears {
 } ears(LeftAltPin, INIT_LEFT_ALT,
        LeftAziPin, INIT_LEFT_AZI,
        RightAltPin, INIT_RIGHT_ALT,
-       RightAltPin, INIT_RIGHT_AZI) ;
+       RightAziPin, INIT_RIGHT_AZI) ;
 
 void setup()
 {
@@ -347,20 +365,16 @@ void setup()
 
     WiFi.softAP(AP_NameChar, WiFiAPPSK);
 
+#ifdef DEBUG_ESP_PORT
+    Serial.begin(115200);
+#endif
 
     server.begin();
 
-    ears.left.attach();
-    ears.right.attach();
-
-    ears.left.moveto(0, 0);
-    ears.right.moveto(0, 0);
-    delay(300);
-
-    ears.left.detach();
-    ears.right.detach();
-
-
+    mvt_table[0].reset();
+    ears.define_move(&mvt_table[0]);
+    
+    P("setup done\n");
 }
 
 //1
@@ -487,19 +501,20 @@ void mvt_tourne(void)
 // 11
 void mvt_reset(void)
 {
+    mvt_table[0].reset();
+    ears.define_move(&mvt_table[0]);
 }
 
 void loop()
 {
-  // Check if a client has connected
+  ears.step();
+// Check if a client has connected
   WiFiClient client = server.available();
   if (!client) {
     return;
   }
 
-  ears.step();
-
-  // Read the first line of the request
+    // Read the first line of the request
   String request = client.readStringUntil('\r');
   client.flush();
 
