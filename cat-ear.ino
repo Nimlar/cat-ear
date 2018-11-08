@@ -154,7 +154,22 @@ struct ears_target {
     struct ear_target right;
     struct ears_target *next_if_loop;
     struct ears_target *next;
+    int i;
     int count;
+
+    void set(struct ear_target left, struct ear_target right, struct ears_target *next) {
+        this->i = 0;
+        this->count = 1;
+        this->next = next;
+        this->next_if_loop = NULL;
+        this->left = left;
+        this->right = right;
+    }
+
+    void reset() {
+        this->set({0} , {0}, NULL);
+    }
+
 };
 
 #define NB_MVT 5
@@ -210,7 +225,7 @@ class HalfEar {
                 this->_s.detach();
                 return true;
             }
-            if (this->_inter == -1) {
+            if (this->_inter == 0) {
                 this->moveto(this->_dest);
             } else {
                 this->moveto(this->_cur + incr);
@@ -293,7 +308,6 @@ struct ears {
     }
     void define_move(struct ears_target * move) {
         this->move = move;
-        this->count = move->count;
         if (move) {
             if (move->i <= 0)
                 move->i = move->count;
@@ -352,75 +366,39 @@ void setup()
 //1
 void mvt_triste(void)
 {
-    mvt_table[0] = {
-        .left = { .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .next = &mvt_table[1]
-    };
-    mvt_table[1] = {
-        .left = { .azi = { .dest = 0, .inter = 0 },
-                  .alt = { .dest = 30, .inter = 5 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = 0 },
-                  .alt = { .dest = 30, .inter = 5 },
-                },
-        .next = NULL
-    };
+    mvt_table[0].reset();
+    mvt_table[0].next = &mvt_table[1];
+
+    mvt_table[1].set({ .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 30, .inter = 5 }},
+                     { .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 30, .inter = 5 }},
+                     &mvt_table[2]);
+
+    mvt_table[2].reset();
+
     ears.define_move(&mvt_table[0]);
 }
 
 //2
 void mvt_penaud(void)
 {
-    mvt_table[0] = {
-        .left = { .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .next = &mvt_table[1]
-    };
-    mvt_table[1] = {
-        .left = { .azi = { .dest =100, .inter = 10 },
-                  .alt = { .dest = 0, .inter = 0 },
-                },
-        .right ={ .azi = { .dest = -100, .inter = 10 },
-                  .alt = { .dest = 0, .inter = 0 },
-                },
-        .next = &mvt_table[2]
-    };
-    mvt_table[2] = {
-        .left = { .azi = { .dest = 100, .inter = 0 },
-                  .alt = { .dest = -20, .inter = 10 },
-                },
-        .right ={ .azi = { .dest = -100, .inter = 0 },
-                  .alt = { .dest = +20, .inter = 10 },
-                },
-        .next = &mvt_table[3]
-    };
-    mvt_table[3] = {
-        .left = { .azi = { .dest = +100, .inter = 0 },
-                  .alt = { .dest = 0, .inter = 30 },
-                },
-        .right ={ .azi = { .dest = -100, .inter = 0 },
-                  .alt = { .dest = 0, .inter = 30 },
-                },
-        .next = &mvt_table[4]
-    };
-    mvt_table[4] = {
-        .left = { .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .next = NULL
-    };
+    mvt_table[0].reset();
+    mvt_table[0].next = &mvt_table[1];
+
+    mvt_table[1].set({ .azi = { .dest =100, .inter = 10 }, .alt = { .dest = 0, .inter = 0 }},
+                     { .azi = { .dest = -100, .inter = 10 }, .alt = { .dest = 0, .inter = 0 }},
+                     &mvt_table[2]);
+
+    mvt_table[2].set({ .azi = { .dest = 100, .inter = 0 }, .alt = { .dest = -20, .inter = 10 }},
+                     { .azi = { .dest = -100, .inter = 0 },.alt = { .dest = +20, .inter = 10 }},
+                     &mvt_table[3]);
+
+
+    mvt_table[3].set({ .azi = { .dest = +100, .inter = 0 }, .alt = { .dest = 0, .inter = 30 }},
+                     { .azi = { .dest = -100, .inter = 0 }, .alt = { .dest = 0, .inter = 30 }},
+                     &mvt_table[4]);
+
+    mvt_table[4].reset();
+
     ears.define_move(&mvt_table[0]);
 
 }
@@ -428,109 +406,50 @@ void mvt_penaud(void)
 //3
 void mvt_gauche(void)
 {
-    mvt_table[0] = {
-        .left = { .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .next = &mvt_table[1]
-    };
-    mvt_table[1] = {
-        .left = { .azi = { .dest =50, .inter = 3 },
-                  .alt = { .dest =50, .inter = 3 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = 0 },
-                  .alt = { .dest = 0, .inter = 0 },
-                },
-        .next = &mvt_table[2]
-    };
-    mvt_table[2] = {
-        .left = { .azi = { .dest = 50, .inter = 0 },
-                  .alt = { .dest = 35, .inter = 10 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = 0 },
-                  .alt = { .dest = 0, .inter = 0 },
-                },
-        .next = &mvt_table[3]
-    };
-    mvt_table[3] = {
-        .left = { .azi = { .dest = 50, .inter =  0 },
-                  .alt = { .dest = 50, .inter = 10 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = 0 },
-                  .alt = { .dest = 0, .inter = 0 },
-                },
-        .count = 5,
-        .next_if_loop = &mvt_table[2],
-        .next = &mvt_table[4]
-    };
-    mvt_table[4] = {
-        .left = { .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .next = NULL
-    };
+    mvt_table[0].reset();
+    mvt_table[0].next = &mvt_table[1];
+
+    mvt_table[1].set({ .azi = { .dest =50, .inter = 3 }, .alt = { .dest =50, .inter = 3 }},
+                     { .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
+                     &mvt_table[2]);
+    mvt_table[2].set({ .azi = { .dest = 50, .inter = 0 }, .alt = { .dest = 35, .inter = 10 }},
+                     { .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
+                     &mvt_table[3]);
+
+    mvt_table[3].set({ .azi = { .dest = 50, .inter =  0 }, .alt = { .dest = 50, .inter = 10 }},
+                     { .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
+                     &mvt_table[4]);
+    mvt_table[3].count = 5;
+    mvt_table[3].next_if_loop = &mvt_table[2];
+
+    mvt_table[4].reset();
+
     ears.define_move(&mvt_table[0]);
- 
+
 }
 
 //4
 void mvt_droit(void)
 {
-    mvt_table[0] = {
-        .left = { .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .next = &mvt_table[1]
-    };
-    mvt_table[1] = {
-        .left = { .azi = { .dest = 0, .inter = 0 },
-                  .alt = { .dest = 0, .inter = 0 },
-                },
-        .right ={ .azi = { .dest = 50, .inter = 3 },
-                  .alt = { .dest = 50, .inter = 3 },
-                },
-        .next = &mvt_table[2]
-    };
-    mvt_table[2] = {
-        .left = { .azi = { .dest = 0, .inter = 0 },
-                  .alt = { .dest = 0, .inter = 0 },
-                },
-        .right ={ .azi = { .dest = 50, .inter = 0 },
-                  .alt = { .dest = 35, .inter = 10 },
-                },
-        .next = &mvt_table[3]
-    };
-    mvt_table[3] = {
-        .left = { .azi = { .dest = 0, .inter = 0 },
-                  .alt = { .dest = 0, .inter = 0 },
-                },
-        .right= { .azi = { .dest = 50, .inter =  0 },
-                  .alt = { .dest = 50, .inter = 10 },
-                },
-        .count = 5,
-        .next_if_loop = &mvt_table[2],
-        .next = &mvt_table[4]
-    };
-    mvt_table[4] = {
-        .left = { .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .right ={ .azi = { .dest = 0, .inter = -1 },
-                  .alt = { .dest = 0, .inter = -1 },
-                },
-        .next = NULL
-    };
+    mvt_table[0].reset();
+    mvt_table[0].next = &mvt_table[1];
+
+    mvt_table[1].set({ .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
+                     { .azi = { .dest =50, .inter = 3 }, .alt = { .dest =50, .inter = 3 }},
+                     &mvt_table[2]);
+    mvt_table[2].set({ .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
+                     { .azi = { .dest = 50, .inter = 0 }, .alt = { .dest = 35, .inter = 10 }},
+                     &mvt_table[3]);
+
+    mvt_table[3].set({ .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
+                     { .azi = { .dest = 50, .inter =  0 }, .alt = { .dest = 50, .inter = 10 }},
+                     &mvt_table[4]);
+    mvt_table[3].count = 5;
+    mvt_table[3].next_if_loop = &mvt_table[2];
+
+    mvt_table[4].reset();
+
     ears.define_move(&mvt_table[0]);
- 
 }
 
 //5
