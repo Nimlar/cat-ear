@@ -1,16 +1,46 @@
 //arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2 .
-
+#ifndef PC_EMUL
 #include <ESP8266WiFi.h>
 #include <Servo.h>
-
-#ifdef DEBUG_ESP_PORT
-#define P(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
-#else
-#define P(...)
 #endif
 
-const char *http_answer=" HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n";
-const char *html_answer=R"rawHTML(
+//////////////////////
+// Pins Definitions //
+//////////////////////
+#define       LeftAltPin                     0  //D3 blanc
+#define       LeftAziPin                     2  //D4 bleu
+#define       RightAltPin                    16 //D0 Rouge
+#define       RightAziPin                    5  //D1 noir
+
+
+#define       INIT_LEFT_ALT              50
+#define       INIT_RIGHT_ALT             85
+#define       INIT_LEFT_AZI              100
+#define       INIT_RIGHT_AZI             100
+
+
+#ifndef P
+#ifdef DEBUG_ESP_PORT
+#define P(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
+const char * pin_name(int pin) 
+{
+switch ( pin ) {
+    case LeftAltPin : return "Left Alt";
+    case LeftAziPin : return "Left Azi";
+    case RightAltPin: return "RightAlt";
+    case RightAziPin: return "RightAzi";
+    default:          return "unknown";
+    }
+}
+#define Ppin(pin, str, ...) DEBUG_ESP_PORT.printf("%s " str, pin_name(pin), ##__VA_ARGS__ )
+#else
+#define P(...)
+#define Ppin(...)
+#endif
+#endif
+
+static const char *http_answer=" HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n";
+static const char *html_answer=R"rawHTML(
 <html>
 <head>
 <meta charset="utf-8">
@@ -123,22 +153,8 @@ img {
 </html>
 
 )rawHTML";
-//////////////////////
-// Pins Definitions //
-//////////////////////
-
 const char WiFiAPPSK[] = "oreilles"; //password wifi
 
-#define       LeftAltPin                     0  //D3 blanc
-#define       LeftAziPin                     2  //D4 bleu
-#define       RightAltPin                    16 //D0 Rouge
-#define       RightAziPin                    5  //D1 noir
-
-
-#define       INIT_LEFT_ALT              50
-#define       INIT_RIGHT_ALT             85
-#define       INIT_LEFT_AZI              100
-#define       INIT_RIGHT_AZI             100
 
 template <typename T>
 T sign(T val) {
@@ -148,7 +164,7 @@ T sign(T val) {
 
 struct target {
     int dest;
-    int inter;
+    unsigned int inter;
 };
 struct ear_target {
     struct target azi;
@@ -162,23 +178,23 @@ struct ears_target {
     int i;
     int count;
 
-    void set(struct ear_target left, struct ear_target right, struct ears_target *next) {
+    void set(struct ear_target l, struct ear_target r, struct ears_target *n) {
         this->i = 0;
         this->count = 1;
-        this->next = next;
+        this->next = n;
         this->next_if_loop = NULL;
-        this->left = left;
-        this->right = right;
+        this->left = l;
+        this->right = r;
     }
 
     void reset() {
-        this->set({0} , {0}, NULL);
+        this->set({} , {}, NULL);
     }
 
 };
 
 #define NB_MVT 5
-struct ears_target mvt_table[NB_MVT];
+static struct ears_target mvt_table[NB_MVT];
 
 /////////////////////
 // Wifi Definitions //
@@ -189,33 +205,33 @@ WiFiServer server(80);
 class HalfEar {
 
     Servo _s;
-    int _dest;
-    int _cur;
-    int _inter;
-    int _neuter;
-    unsigned long _last;
     int _pin;
+    int _neuter;
+    int _cur;
+    int _dest;
+    unsigned int _inter;
+    unsigned long _last;
 
     void _moveto(int offset, unsigned long now) {
         this->_cur = offset;
         this->_last = now;
         if (!this->_s.attached()) {
             /* ERROR */
-            P("%02d SHOULD BE ATTACHED\n", this->_pin);
+            Ppin(this->_pin, "SHOULD BE ATTACHED\n");
         }
-        P("%02d send angle = %d\n", this->_pin, offset + this->_neuter);
+        Ppin(this->_pin, "send angle = %d\n", offset + this->_neuter);
         this->_s.write(offset + this->_neuter);
     }
 
-    public:
-    HalfEar(int pin, int neuter) : _pin(pin), _neuter(neuter), _cur(-100) {};
+public:
+    HalfEar(int pin, int neuter) : _pin(pin), _neuter(neuter), _cur(-100) {}
 
     void attach() {
-        P("%02d Attach\n", this->_pin);
+        Ppin(this->_pin, "Attach\n");
         this->_s.attach(this->_pin);
     }
     void detach() {
-        P("%02d Detach\n", this->_pin);
+        Ppin(this->_pin, "Detach\n");
         this->_s.detach();
     }
 
@@ -223,15 +239,15 @@ class HalfEar {
         this->_moveto(angle, now);
     }*/
     void moveto(int offset) {
-        P("%02d half ear move to offset %d\n", this->_pin, offset);
+        Ppin(this->_pin, "half ear move to offset %d\n", offset);
         this->_moveto(offset, millis());
     }
     bool step(unsigned long now) {
         // is it time ?
-        P("%02d is it time now=%d, last=%d, inter=%d\n", this->_pin, now, this->_last, this->_inter);
-        if (this->_last + this->_inter <= now) {
+        Ppin(this->_pin, "is it time now=%lu, last=%lu, inter=%u\n",now, this->_last, this->_inter);
+        if ((this->_last + this->_inter) <= now) {
             int incr = sign(this->_dest - this->_cur);
-            P("%02d now move dest=%d, cur=%d, incr=%d\n", this->_pin, this->_dest, this->_cur, incr);
+            Ppin(this->_pin, "now move dest=%d, cur=%d, incr=%d\n", this->_dest, this->_cur, incr);
             if (!incr) {
                 // end of move for this servo
                 this->moveto(this->_dest);
@@ -244,14 +260,14 @@ class HalfEar {
                 this->moveto(this->_cur + incr);
             }
         }
-        else P("%02d not time to move\n",this->_pin);
+        else {Ppin(this->_pin, "not time to move\n"); }
         return false;
     }
 
     void define_move(struct target *move) {
         this->_dest = move->dest;
         this->_inter = move->inter * 10;
-        P("%02d define move half-ear inter=%d dest=%d, cur=%d\n",this->_pin, this->_inter, this->_dest, this->_cur);
+        Ppin(this->_pin, "define move half-ear inter=%u dest=%d, cur=%d\n", this->_inter, this->_dest, this->_cur);
     }
 };
 
@@ -260,7 +276,7 @@ class Ear {
     HalfEar _azi;
     public:
     Ear(int altPin, int altNeuter, int aziPin, int aziNeuter) : _alt(altPin, altNeuter),
-                                                                _azi(aziPin, aziNeuter) {};
+                                                                _azi(aziPin, aziNeuter) {}
 
     void attach() {
         this->_azi.attach();
@@ -300,7 +316,7 @@ struct ears {
          int rAltPin, int rAltNeuter,
          int rAziPin, int rAziNeuter) :
                 left(lAltPin, lAltNeuter, lAziPin, lAziNeuter),
-                right(rAltPin, rAltNeuter, rAziPin, rAziNeuter) {};
+                right(rAltPin, rAltNeuter, rAziPin, rAziNeuter) {}
 
     bool step() {
         bool finish;
@@ -324,15 +340,15 @@ struct ears {
             return true;
         }
     }
-    void define_move(struct ears_target* move) {
-        this->move = move;
-        if (move) {
-            if (move->i <= 0)
-                move->i = move->count;
+    void define_move(struct ears_target* m) {
+        this->move = m;
+        if (m) {
+            if (m->i <= 0)
+                m->i = m->count;
             this->left.attach();
-            this->left.define_move(&move->left);
+            this->left.define_move(&m->left);
             this->right.attach();
-            this->right.define_move(&move->right);
+            this->right.define_move(&m->right);
         } else {
             this->left.detach();
             this->right.detach();
@@ -345,7 +361,7 @@ struct ears {
 
 void setup()
 {
-
+#ifndef PC_EMUL
     WiFi.mode(WIFI_AP);
 
     // Do a little work to get a unique-ish name. Append the
@@ -370,6 +386,7 @@ void setup()
 #endif
 
     server.begin();
+#endif
 
     mvt_table[0].reset();
     ears.define_move(&mvt_table[0]);
@@ -508,6 +525,8 @@ void mvt_reset(void)
 void loop()
 {
   ears.step();
+
+#ifndef PC_EMUL
 // Check if a client has connected
   WiFiClient client = server.available();
   if (!client) {
@@ -548,7 +567,7 @@ void loop()
   // Return the response
   client.print(http_answer);
   client.print(html_answer);
-
+#endif
   // The client will actually be disconnected
   // when the function returns and 'client' object is detroyed
 }
