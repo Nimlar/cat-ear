@@ -22,7 +22,7 @@
 #ifndef P
 #ifdef DEBUG_ESP_PORT
 #define P(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
-const char * pin_name(int pin) 
+const char * pin_name(int pin)
 {
 switch ( pin ) {
     case LeftAltPin : return "Left Alt";
@@ -34,8 +34,8 @@ switch ( pin ) {
 }
 #define Ppin(pin, str, ...) DEBUG_ESP_PORT.printf("%s " str, pin_name(pin), ##__VA_ARGS__ )
 #else
-#define P(...)
-#define Ppin(...)
+#define P(...) do{} while(0)
+#define Ppin(...) do{} while(0)
 #endif
 #endif
 
@@ -219,6 +219,7 @@ class HalfEar {
             /* ERROR */
             Ppin(this->_pin, "SHOULD BE ATTACHED\n");
         }
+        P("***");
         Ppin(this->_pin, "send angle = %d\n", offset + this->_neuter);
         this->_s.write(offset + this->_neuter);
     }
@@ -244,29 +245,34 @@ public:
     }
     bool step(unsigned long now) {
         // is it time ?
-        Ppin(this->_pin, "is it time now=%lu, last=%lu, inter=%u\n",now, this->_last, this->_inter);
-        if ((this->_last + this->_inter) <= now) {
-            int incr = sign(this->_dest - this->_cur);
-            Ppin(this->_pin, "now move dest=%d, cur=%d, incr=%d\n", this->_dest, this->_cur, incr);
-            if (!incr) {
-                // end of move for this servo
-                this->moveto(this->_dest);
-                this->_s.detach();
-                return true;
+        if (!this->_s.attached()) {
+            Ppin(this->_pin, "not attached, nothing to do, move ended\n");
+            return true;
+        } else {
+            Ppin(this->_pin, "is it time now=%lu, last=%lu, inter=%u\n",now, this->_last, this->_inter);
+            if ((this->_last + this->_inter) <= now) {
+                int incr = sign(this->_dest - this->_cur);
+                Ppin(this->_pin, "now move dest=%d, cur=%d, incr=%d\n", this->_dest, this->_cur, incr);
+                if (!incr) {
+                    // end of move for this servo
+                    this->_s.detach();
+                    return true;
+                }
+                if (this->_inter == 0) {
+                    this->moveto(this->_dest);
+                } else {
+                    this->moveto(this->_cur + incr);
+                }
             }
-            if (this->_inter == 0) {
-                this->moveto(this->_dest);
-            } else {
-                this->moveto(this->_cur + incr);
-            }
+            else {Ppin(this->_pin, "not time to move\n"); }
+            return false;
         }
-        else {Ppin(this->_pin, "not time to move\n"); }
-        return false;
     }
 
     void define_move(struct target *move) {
         this->_dest = move->dest;
         this->_inter = move->inter * 10;
+        P("***");
         Ppin(this->_pin, "define move half-ear inter=%u dest=%d, cur=%d\n", this->_inter, this->_dest, this->_cur);
     }
 };
@@ -327,15 +333,15 @@ struct ears {
             if(finish) {
                 P("finish move i=%d, count=%d\n", move->i, move->count);
                 if (--(move->i) <= 0) {
-                    P("next move %p\n", move->next);
+                    P("next move %p\n\n", move->next);
                     this->define_move(move->next);
                 } else {
-                    P("next loop move %p\n", move->next_if_loop);
+                    P("next loop move %p\n\n", move->next_if_loop);
                     this->define_move(move->next_if_loop);
                 }
 
             }
-            return finish;
+            return false;
         } else {
             return true;
         }
@@ -456,7 +462,6 @@ void mvt_gauche(void)
     mvt_table[4].reset();
 
     ears.define_move(&mvt_table[0]);
-
 }
 
 //4
@@ -469,11 +474,11 @@ void mvt_droit(void)
                      { .azi = { .dest =50, .inter = 3 }, .alt = { .dest =50, .inter = 3 }},
                      &mvt_table[2]);
     mvt_table[2].set({ .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
-                     { .azi = { .dest = 50, .inter = 0 }, .alt = { .dest = 35, .inter = 10 }},
+                     { .azi = { .dest = 50, .inter = 10 }, .alt = { .dest = 35, .inter = 10 }},
                      &mvt_table[3]);
 
     mvt_table[3].set({ .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
-                     { .azi = { .dest = 50, .inter =  0 }, .alt = { .dest = 50, .inter = 10 }},
+                     { .azi = { .dest = 50, .inter = 10 }, .alt = { .dest = 50, .inter = 10 }},
                      &mvt_table[4]);
     mvt_table[3].count = 5;
     mvt_table[3].next_if_loop = &mvt_table[2];
