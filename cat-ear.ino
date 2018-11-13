@@ -164,6 +164,8 @@ T sign(T val) {
 
 struct target {
     int dest;
+    int step;
+    int accel;
     unsigned int inter;
 };
 struct ear_target {
@@ -177,23 +179,38 @@ struct ears_target {
     struct ears_target *next;
     int i;
     int count;
-
-    void set(struct ear_target l, struct ear_target r, struct ears_target *n) {
-        this->i = 0;
-        this->count = 1;
-        this->next = n;
-        this->next_if_loop = NULL;
-        this->left = l;
-        this->right = r;
-    }
+    int wait; /* wait time before first move of this struct */
 
     void reset() {
-        this->set({} , {}, NULL);
+        this->left.azi.dest = 0;
+        this->left.azi.inter = 0;
+        this->left.azi.step = 1;
+        this->left.azi.accel = 0;
+        this->left.alt.dest = 0;
+        this->left.alt.inter = 0;
+        this->left.alt.step = 1;
+        this->left.alt.accel = 0;
+        this->right.azi.dest = 0;
+        this->right.azi.inter = 0;
+        this->right.azi.step = 1;
+        this->right.azi.accel = 0;
+        this->right.alt.dest = 0;
+        this->right.alt.inter = 0;
+        this->right.alt.step = 1;
+        this->right.alt.accel = 0;
+
+        this->next = NULL;
+        this->next_if_loop = NULL;
+
+        this->i = 0;
+        this->count = 1;
+
+        this->wait = 0;
     }
 
 };
 
-#define NB_MVT 5
+#define NB_MVT 6
 static struct ears_target mvt_table[NB_MVT];
 
 /////////////////////
@@ -210,18 +227,20 @@ class HalfEar {
     int _way;
     int _cur;
     int _dest;
+    int _step;
+    int _accel;
     unsigned int _inter;
-    unsigned long _last;
+    unsigned long _wait;
 
     void _moveto(int offset, unsigned long now) {
         this->_cur = offset;
-        this->_last = now;
+        this->_wait = now + this->_inter;
         if (!this->_s.attached()) {
             /* ERROR */
             Ppin(this->_pin, "SHOULD BE ATTACHED\n");
         }
-        P("***");
-        Ppin(this->_pin, "send angle = %d\n", offset + this->_neuter);
+        //P("***");
+        Ppin(this->_pin, "write %d angle (%d)\n",offset + this->_neuter, offset);
         this->_s.write(offset + this->_neuter);
     }
 
@@ -250,19 +269,25 @@ public:
             Ppin(this->_pin, "not attached, nothing to do, move ended\n");
             return true;
         } else {
-            Ppin(this->_pin, "is it time now=%lu, last=%lu, inter=%u\n",now, this->_last, this->_inter);
-            if ((this->_last + this->_inter) <= now) {
-                int incr = sign(this->_dest - this->_cur);
-                Ppin(this->_pin, "now move dest=%d, cur=%d, incr=%d\n", this->_dest, this->_cur, incr);
-                if (!incr) {
+            Ppin(this->_pin, "is it time now=%lu, wait=%lu\n",now, this->_wait);
+            if (now >= this->_wait) {
+                Ppin(this->_pin, "now move dest=%d, cur=%d, step=%d\n", this->_dest, this->_cur, this->_step);
+                if (this->_inter == 0) {
+                    this->moveto(this->_dest);
                     // end of move for this servo
                     this->_s.detach();
                     return true;
-                }
-                if (this->_inter == 0) {
-                    this->moveto(this->_dest);
                 } else {
-                    this->moveto(this->_cur + incr);
+                    int prev_pos = this->_cur;
+                    this->moveto(this->_cur + this->_step);
+                    this->_step += this->_accel;
+                    if ((this->_dest == this->_cur) // dest reached
+                       or (sign(this->_dest - prev_pos) != sign(this->_dest - this->_cur))){ // dest overtaken
+                        // end of move for this servo
+                        this->_s.detach();
+                        return true;
+
+                    }
                 }
             }
             else {Ppin(this->_pin, "not time to move\n"); }
@@ -270,9 +295,17 @@ public:
         }
     }
 
-    void define_move(struct target *move) {
+    void define_move(struct target *move, int wait) {
         this->_dest = this->_way * move->dest;
         this->_inter = move->inter * 10;
+        this->_step = move->step ? move->step : 1;
+        this->_accel = move->accel;
+        if( sign(this->_dest - this->_cur) != sign(this->_step)) {
+            /* got to right way */
+            this->_step = -this->_step;
+            this->_accel = -this->_accel;
+        }
+        this->_wait = millis() + wait;
         P("***");
         Ppin(this->_pin, "define move half-ear inter=%u dest=%d, cur=%d\n", this->_inter, this->_dest, this->_cur);
     }
@@ -282,8 +315,8 @@ class Ear {
     HalfEar _alt;
     HalfEar _azi;
     public:
-    Ear(int altPin, int altNeuter, int aziPin, int aziNeuter, int azi_way) : _alt(altPin, altNeuter, 1),
-                                                                _azi(aziPin, aziNeuter, azi_way) {}
+    Ear(int altPin, int altNeuter, int aziPin, int aziNeuter, int alt_way) : _alt(altPin, altNeuter, alt_way),
+                                                                _azi(aziPin, aziNeuter, 1) {}
 
     void attach() {
         this->_azi.attach();
@@ -307,9 +340,9 @@ class Ear {
         return finish;
     }
 
-    void define_move(struct ear_target *move) {
-        this->_alt.define_move(&move->alt);
-        this->_azi.define_move(&move->azi);
+    void define_move(struct ear_target *move, int wait) {
+        this->_alt.define_move(&move->alt, wait);
+        this->_azi.define_move(&move->azi, wait);
     }
 };
 
@@ -322,8 +355,8 @@ struct ears {
          int lAziPin, int lAziNeuter,
          int rAltPin, int rAltNeuter,
          int rAziPin, int rAziNeuter) :
-                left(lAltPin, lAltNeuter, lAziPin, lAziNeuter, 1),
-                right(rAltPin, rAltNeuter, rAziPin, rAziNeuter, -1) {}
+                left(lAltPin, lAltNeuter, lAziPin, lAziNeuter, -1),
+                right(rAltPin, rAltNeuter, rAziPin, rAziNeuter, 1) {}
 
     bool step() {
         bool finish;
@@ -353,9 +386,9 @@ struct ears {
             if (m->i <= 0)
                 m->i = m->count;
             this->left.attach();
-            this->left.define_move(&m->left);
+            this->left.define_move(&m->left, m->wait);
             this->right.attach();
-            this->right.define_move(&m->right);
+            this->right.define_move(&m->right, m->wait);
         } else {
             this->left.detach();
             this->right.detach();
@@ -402,40 +435,77 @@ void setup()
 }
 
 //1
-void mvt_triste(void)
+void mvt_triste(void) /* Ok for pos, check time */
 {
     mvt_table[0].reset();
+    mvt_table[0].right.alt.dest = -35; /**/
+    mvt_table[0].left.alt.dest = -35; /**/
     mvt_table[0].next = &mvt_table[1];
 
-    mvt_table[1].set({ .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 30, .inter = 5 }},
-                     { .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 30, .inter = 5 }},
-                     &mvt_table[2]);
+    mvt_table[1].reset();
+    mvt_table[1].left.alt.dest = -65; /**/
+    mvt_table[1].left.alt.inter = 5;
+    mvt_table[1].left.alt.step = 1;
+    mvt_table[1].right.alt.dest = -65; /**/
+    mvt_table[1].right.alt.inter = 5;
+    mvt_table[1].right.alt.step = 1;
+    mvt_table[1].next =  &mvt_table[2];
 
     mvt_table[2].reset();
+    mvt_table[2].left.alt.dest = 25; /**/
+    mvt_table[2].left.alt.inter = 5;
+    mvt_table[2].left.alt.step = 1;
+    mvt_table[2].right.alt.dest = 25; /**/
+    mvt_table[2].right.alt.inter = 5;
+    mvt_table[2].right.alt.step = 1;
+    mvt_table[2].next =  &mvt_table[3];
+
+    mvt_table[3].reset();
 
     ears.define_move(&mvt_table[0]);
 }
 
 //2
-void mvt_penaud(void)
+void mvt_penaud(void) /* XXX */
 {
     mvt_table[0].reset();
     mvt_table[0].next = &mvt_table[1];
 
-    mvt_table[1].set({ .azi = { .dest =100, .inter = 10 }, .alt = { .dest = 0, .inter = 0 }},
-                     { .azi = { .dest = -100, .inter = 10 }, .alt = { .dest = 0, .inter = 0 }},
-                     &mvt_table[2]);
+    mvt_table[1].reset();
+    mvt_table[1].left.azi.dest = 100; /**/
+    mvt_table[1].left.azi.inter = 10;
+    mvt_table[1].left.azi.step = 1;
+    mvt_table[1].left.alt.dest = -35; /**/
+    mvt_table[1].right.azi.dest = -100;/**/
+    mvt_table[1].right.azi.inter = 10;
+    mvt_table[1].right.azi.step = 1;
+    mvt_table[1].right.alt.dest = -35;
+    mvt_table[1].next =  &mvt_table[2];
 
-    mvt_table[2].set({ .azi = { .dest = 100, .inter = 0 }, .alt = { .dest = -20, .inter = 10 }},
-                     { .azi = { .dest = -100, .inter = 0 },.alt = { .dest = +20, .inter = 10 }},
-                     &mvt_table[3]);
+    mvt_table[2].reset();
+    mvt_table[2].left.azi.dest = 100;/**/
+    mvt_table[2].left.alt.dest = -55;/**/
+    mvt_table[2].left.alt.inter = 10;
+    mvt_table[2].left.alt.step = 1;
+    mvt_table[2].right.azi.dest = -100;/**/
+    mvt_table[2].right.alt.dest = -50;
+    mvt_table[2].right.alt.inter = 10;
+    mvt_table[2].right.alt.step = 1;
+    mvt_table[2].next =  &mvt_table[3];
 
-
-    mvt_table[3].set({ .azi = { .dest = +100, .inter = 0 }, .alt = { .dest = 0, .inter = 30 }},
-                     { .azi = { .dest = -100, .inter = 0 }, .alt = { .dest = 0, .inter = 30 }},
-                     &mvt_table[4]);
+    mvt_table[3].reset();
+    mvt_table[3].left.azi.dest = 100;/* */
+    mvt_table[3].left.alt.dest = 5;
+    mvt_table[3].left.alt.inter = 10;
+    mvt_table[3].left.alt.step = 1;
+    mvt_table[3].right.azi.dest = -100;/**/
+    mvt_table[3].right.alt.dest = 0;
+    mvt_table[3].right.alt.inter = 30;
+    mvt_table[3].right.alt.step = 1;
+    mvt_table[3].next =  &mvt_table[4];
 
     mvt_table[4].reset();
+    mvt_table[4].wait = 300 ;
 
     ears.define_move(&mvt_table[0]);
 
@@ -447,20 +517,39 @@ void mvt_gauche(void)
     mvt_table[0].reset();
     mvt_table[0].next = &mvt_table[1];
 
-    mvt_table[1].set({ .azi = { .dest =50, .inter = 3 }, .alt = { .dest =50, .inter = 3 }},
-                     { .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
-                     &mvt_table[2]);
-    mvt_table[2].set({ .azi = { .dest = 50, .inter = 0 }, .alt = { .dest = 35, .inter = 10 }},
-                     { .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
-                     &mvt_table[3]);
+    mvt_table[1].reset();
+    mvt_table[1].left.azi.dest = 50;
+    mvt_table[1].left.azi.inter = 3;
+    mvt_table[1].left.azi.step = 1;
+    mvt_table[1].next =  &mvt_table[2];
 
-    mvt_table[3].set({ .azi = { .dest = 50, .inter =  0 }, .alt = { .dest = 50, .inter = 10 }},
-                     { .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
-                     &mvt_table[4]);
-    mvt_table[3].count = 5;
-    mvt_table[3].next_if_loop = &mvt_table[2];
+    mvt_table[2].reset();
+    mvt_table[2].left.azi.dest = -50;
+    mvt_table[2].left.alt.dest = -50;
+    mvt_table[2].left.alt.inter = 10;
+    mvt_table[2].left.alt.step = 1;
+    mvt_table[2].next =  &mvt_table[3];
+
+    mvt_table[3].reset();
+    mvt_table[3].left.azi.dest = -50;
+    mvt_table[3].left.alt.dest = 70;
+    mvt_table[3].left.alt.inter = 10;
+    mvt_table[3].left.alt.step = 1;
+    mvt_table[3].left.alt.accel = 1;
+    mvt_table[3].next =  &mvt_table[4];
 
     mvt_table[4].reset();
+    mvt_table[4].left.azi.dest = -50;
+    mvt_table[4].left.alt.dest = -50;
+    mvt_table[4].left.alt.inter = 10;
+    mvt_table[4].left.alt.step = 1;
+    mvt_table[4].left.alt.accel = 1;
+    mvt_table[4].next =  &mvt_table[5];
+    mvt_table[4].count = 6;
+    mvt_table[4].next_if_loop = &mvt_table[3];
+    mvt_table[4].next =  &mvt_table[5];
+
+    mvt_table[5].reset();
 
     ears.define_move(&mvt_table[0]);
 }
@@ -471,20 +560,39 @@ void mvt_droit(void)
     mvt_table[0].reset();
     mvt_table[0].next = &mvt_table[1];
 
-    mvt_table[1].set({ .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
-                     { .azi = { .dest =50, .inter = 3 }, .alt = { .dest =50, .inter = 3 }},
-                     &mvt_table[2]);
-    mvt_table[2].set({ .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
-                     { .azi = { .dest = 50, .inter = 10 }, .alt = { .dest = 35, .inter = 10 }},
-                     &mvt_table[3]);
+    mvt_table[1].reset();
+    mvt_table[1].right.azi.dest = -50;
+    mvt_table[1].right.azi.inter = 3;
+    mvt_table[1].right.azi.step = 1;
+    mvt_table[1].next =  &mvt_table[2];
 
-    mvt_table[3].set({ .azi = { .dest = 0, .inter = 0 }, .alt = { .dest = 0, .inter = 0 }},
-                     { .azi = { .dest = 50, .inter = 10 }, .alt = { .dest = 50, .inter = 10 }},
-                     &mvt_table[4]);
-    mvt_table[3].count = 5;
-    mvt_table[3].next_if_loop = &mvt_table[2];
+    mvt_table[2].reset();
+    mvt_table[2].right.azi.dest = -50;
+    mvt_table[2].right.alt.dest = -50;
+    mvt_table[2].right.alt.inter = 10;
+    mvt_table[2].right.alt.step = 1;
+    mvt_table[2].next =  &mvt_table[3];
+
+    mvt_table[3].reset();
+    mvt_table[3].right.azi.dest = -50;
+    mvt_table[3].right.alt.dest = 70;
+    mvt_table[3].right.alt.inter = 10;
+    mvt_table[3].right.alt.step = 1;
+    mvt_table[3].right.alt.accel = 1;
+    mvt_table[3].next =  &mvt_table[4];
 
     mvt_table[4].reset();
+    mvt_table[4].right.azi.dest = -50;
+    mvt_table[4].right.alt.dest = -50;
+    mvt_table[4].right.alt.inter = 10;
+    mvt_table[4].right.alt.step = 1;
+    mvt_table[4].right.alt.accel = 1;
+    mvt_table[4].next =  &mvt_table[5];
+    mvt_table[4].count = 6;
+    mvt_table[4].next_if_loop = &mvt_table[3];
+    mvt_table[4].next =  &mvt_table[5];
+
+    mvt_table[5].reset();
 
     ears.define_move(&mvt_table[0]);
 }

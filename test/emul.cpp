@@ -19,8 +19,7 @@ class Servo {
 public:
     Servo(): _attached(false), _pin(-1) { }
     bool attached() { return this->_attached ;}
-    int write(int angle) { std::cout << "" << pin_name(this->_pin) << "(" << this->_attached <<") write " << angle <<" angle" << std::endl ; return angle; }
-
+    int write(int angle) { return angle; }
     void attach(int pin) { this->_pin = pin; this->_attached=true; }
     void detach() { this->_attached=false; }
 };
@@ -53,11 +52,12 @@ switch ( pin ) {
 class OldDef {
     const char *_name;
     int _pin;
+    int _neuter;
 public:
-    OldDef(const char * name): _name(name) {}
+    OldDef(const char * name, int neuter): _name(name), _neuter(neuter) {}
     void attach(int pin) { this->_pin = pin; P("###"); Ppin(pin, "Attach\n");  }
     void detach() {P("###"); Ppin(this->_pin, "Detach\n"); }
-    void write(int angle) { std::cout << "###" << this->_name << "(1) write " << angle << " angle" << std::endl ; }
+    void write(int angle) { std::cout << "###" << this->_name << " write " << angle << " angle (" << angle - this->_neuter << ")" << std::endl ; }
 };
 
 
@@ -77,10 +77,10 @@ void delay(int wait) {
 std::cout << "###" << "will wait " << wait << std::endl;
 }
 
-static OldDef LeftVer("Left Alt");
-static OldDef RightVer("RightAlt");
-static OldDef LeftAng("Left Azi");
-static OldDef RightAng("RightAzi");
+static OldDef LeftVer("Left Alt", INIT_LEFT_ALT);
+static OldDef RightVer("RightAlt", INIT_RIGHT_ALT);
+static OldDef LeftAng("Left Azi", INIT_LEFT_AZI);
+static OldDef RightAng("RightAzi", INIT_RIGHT_AZI);
 
 //1
 void old_mvt_triste(void)
@@ -95,15 +95,15 @@ void old_mvt_triste(void)
   
   for(byte i=0; i <= MaxAngleShift; i++)
   {
-    RightVer.write(INIT_LEFT_VER_POS - i);
     LeftVer.write(INIT_RIGHT_VER_POS + i);
+    RightVer.write(INIT_LEFT_VER_POS - i);
     delay(MoveDelay);
   }
   
   for(byte i=0; i <= 3*MaxAngleShift; i++)
   {
-    RightVer.write(INIT_LEFT_VER_POS - MaxAngleShift + i);
     LeftVer.write(INIT_RIGHT_VER_POS + MaxAngleShift - i);
+    RightVer.write(INIT_LEFT_VER_POS - MaxAngleShift + i);
     delay(3*MoveDelay);
   }
   
@@ -231,7 +231,7 @@ void old_mvt_gauche(void)
 void old_mvt_droit(void)
 {
   unsigned int MoveDelay = 10;
-  byte AnglePos;
+  byte AnglePos=0;
   
   std::cout << "###old droit" << std::endl  ;
   RightAng.attach(RightAngPin);
@@ -567,7 +567,7 @@ int main(void)
     old_mvt_triste();
     std::cout << std::endl<< std::endl  ;
 #endif
-#if 1
+#if 0
     std::cout << "mvt_right" << std::endl ;
     mvt_droit();
     while(!ears.step()) {
@@ -583,7 +583,7 @@ int main(void)
     old_mvt_gauche();
     std::cout << std::endl<< std::endl  ;
 #endif
-#if 0
+#if 1
     std::cout << "mv_penaud" << std::endl ;
     mvt_penaud();
     while(!ears.step());
