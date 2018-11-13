@@ -6,5 +6,10 @@ all : build install
 build :
 	arduino-cli compile --fqbn $(TARGET) $(BUILD_DIR)
 
-install :
+$(TTY) :
+	@echo "$(TTY) doesn't exist"
+	@echo "please plug your esp"
+	@false
+
+install : | $(TTY)
 	arduino-cli upload -p $(TTY) --fqbn $(TARGET) $(BUILD_DIR)
