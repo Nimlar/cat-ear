@@ -207,6 +207,7 @@ class HalfEar {
     Servo _s;
     int _pin;
     int _neuter;
+    int _way;
     int _cur;
     int _dest;
     unsigned int _inter;
@@ -225,7 +226,7 @@ class HalfEar {
     }
 
 public:
-    HalfEar(int pin, int neuter) : _pin(pin), _neuter(neuter), _cur(-100) {}
+    HalfEar(int pin, int neuter, int way) : _pin(pin), _neuter(neuter), _way(sign(way)), _cur(-100) {}
 
     void attach() {
         Ppin(this->_pin, "Attach\n");
@@ -270,7 +271,7 @@ public:
     }
 
     void define_move(struct target *move) {
-        this->_dest = move->dest;
+        this->_dest = this->_way * move->dest;
         this->_inter = move->inter * 10;
         P("***");
         Ppin(this->_pin, "define move half-ear inter=%u dest=%d, cur=%d\n", this->_inter, this->_dest, this->_cur);
@@ -281,8 +282,8 @@ class Ear {
     HalfEar _alt;
     HalfEar _azi;
     public:
-    Ear(int altPin, int altNeuter, int aziPin, int aziNeuter) : _alt(altPin, altNeuter),
-                                                                _azi(aziPin, aziNeuter) {}
+    Ear(int altPin, int altNeuter, int aziPin, int aziNeuter, int azi_way) : _alt(altPin, altNeuter, 1),
+                                                                _azi(aziPin, aziNeuter, azi_way) {}
 
     void attach() {
         this->_azi.attach();
@@ -321,8 +322,8 @@ struct ears {
          int lAziPin, int lAziNeuter,
          int rAltPin, int rAltNeuter,
          int rAziPin, int rAziNeuter) :
-                left(lAltPin, lAltNeuter, lAziPin, lAziNeuter),
-                right(rAltPin, rAltNeuter, rAziPin, rAziNeuter) {}
+                left(lAltPin, lAltNeuter, lAziPin, lAziNeuter, 1),
+                right(rAltPin, rAltNeuter, rAziPin, rAziNeuter, -1) {}
 
     bool step() {
         bool finish;
