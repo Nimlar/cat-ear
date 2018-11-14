@@ -600,6 +600,62 @@ void mvt_droit(void)
 //5
 void mvt_aguet(void)
 {
+    mvt_table[0].reset();
+    mvt_table[0].next = &mvt_table[1];
+
+    mvt_table[1].reset();
+    mvt_table[1].right.azi.dest = -50;
+    mvt_table[1].right.azi.inter = 3;
+    mvt_table[1].right.azi.step = 1;
+    mvt_table[1].left.azi.dest = 50;
+    mvt_table[1].left.azi.inter = 3;
+    mvt_table[1].left.azi.step = 1;
+    mvt_table[1].next =  &mvt_table[2];
+
+    mvt_table[2].reset();
+    mvt_table[2].right.azi.dest = -50;
+    mvt_table[2].left.azi.dest = 50;
+    mvt_table[2].right.alt.dest = -50;
+    mvt_table[2].right.alt.inter = 3;
+    mvt_table[2].right.alt.step = 1;
+    mvt_table[2].left.alt.dest = -50;
+    mvt_table[2].left.alt.inter = 3;
+    mvt_table[2].left.alt.step = 1;
+    mvt_table[2].next =  &mvt_table[3];
+
+    mvt_table[3].reset();
+    mvt_table[3].right.azi.dest = -50;
+    mvt_table[3].left.azi.dest = 50;
+    mvt_table[3].right.alt.dest = 5;
+    mvt_table[3].right.alt.inter = 10;
+    mvt_table[3].right.alt.step = 1;
+    mvt_table[3].right.alt.accel = 1;
+    mvt_table[3].left.alt.dest = 5;
+    mvt_table[3].left.alt.inter = 10;
+    mvt_table[3].left.alt.step = 1;
+    mvt_table[3].left.alt.accel = 1;
+    mvt_table[3].next =  &mvt_table[4];
+
+    mvt_table[4].reset();
+    mvt_table[4].right.azi.dest = -50;
+    mvt_table[4].left.azi.dest = 50;
+    mvt_table[4].right.alt.dest = -50;
+    mvt_table[4].right.alt.inter = 10;
+    mvt_table[4].right.alt.step = 1;
+    mvt_table[4].right.alt.accel = 1;
+    mvt_table[4].left.alt.dest = -50;
+    mvt_table[4].left.alt.inter = 10;
+    mvt_table[4].left.alt.step = 1;
+    mvt_table[4].left.alt.accel = 1;
+    mvt_table[4].next =  &mvt_table[5];
+    mvt_table[4].count = 6;
+    mvt_table[4].next_if_loop = &mvt_table[3];
+    mvt_table[4].next =  &mvt_table[5];
+
+    mvt_table[5].reset();
+
+    ears.define_move(&mvt_table[0]);
+
 }
 
 //6

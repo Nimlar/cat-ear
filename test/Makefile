@@ -1,5 +1,9 @@
 CXX_CFLAGS=-std=c++11 -Wall -Wextra
 
+ifdef MOVE
+   CXX_CFLAGS += -DMOVE=$(MOVE)
+endif
+
 all:gcc clang
 gcc:
 	g++ $(CXX_CFLAGS) emul.cpp -o emul-$@

@@ -583,11 +583,18 @@ int main(void)
     old_mvt_gauche();
     std::cout << std::endl<< std::endl  ;
 #endif
-#if 1
+#if 0
     std::cout << "mv_penaud" << std::endl ;
     mvt_penaud();
     while(!ears.step());
     old_mvt_penaud();
+    std::cout << std::endl<< std::endl  ;
+#endif
+#if 0
+    std::cout << "mv_aguet" << std::endl ;
+    mvt_aguet();
+    while(!ears.step());
+    old_mvt_aguet();
     std::cout << std::endl<< std::endl  ;
 #endif
 #if 0
@@ -597,5 +604,19 @@ int main(void)
     old_mvt_reset();
     std::cout << std::endl<< std::endl  ;
 #endif
+#ifdef MOVE
+#define STR(a) #a
+#define _MVT(a) mvt_##a
+#define MVT(a) _MVT(a)
+#define _OLD_MVT(a) old_mvt_##a
+#define OLD_MVT(a) _OLD_MVT(a)
+
+    std::cout << "mvt_" STR(MOVE) << std::endl ;
+    MVT(MOVE)();
+    while(!ears.step());
+    OLD_MVT(MOVE)();
+    std::cout << std::endl<< std::endl  ;
+#endif
     return 0;
+
 }
