@@ -32,7 +32,7 @@ switch ( pin ) {
     default:          return "unknown";
     }
 }
-#define Ppin(pin, str, ...) DEBUG_ESP_PORT.printf("%s " str, pin_name(pin), ##__VA_ARGS__ )
+#define Ppin(pin, str, ...) DEBUG_ESP_PORT.printf("[%lu] %s " str, millis(), pin_name(pin), ##__VA_ARGS__ )
 #else
 #define P(...) do{} while(0)
 #define Ppin(...) do{} while(0)
@@ -226,6 +226,7 @@ class HalfEar {
     int _neuter;
     int _way;
     int _cur;
+    bool _finish;
     int _dest;
     int _step;
     int _accel;
@@ -245,7 +246,7 @@ class HalfEar {
     }
 
 public:
-    HalfEar(int pin, int neuter, int way) : _pin(pin), _neuter(neuter), _way(sign(way)), _cur(-100) {}
+    HalfEar(int pin, int neuter, int way) : _pin(pin), _neuter(neuter), _way(sign(way)), _cur(-100), _finish(false) {}
 
     void attach() {
         Ppin(this->_pin, "Attach\n");
@@ -271,12 +272,17 @@ public:
         } else {
             Ppin(this->_pin, "is it time now=%lu, wait=%lu\n",now, this->_wait);
             if (now >= this->_wait) {
+                if (this->_finish) {
+                    Ppin(this->_pin, "now detach\n", this->_dest, this->_cur, this->_step);
+                    this->_s.detach();
+                    this->_finish = false;
+                    return true;
+                }
                 Ppin(this->_pin, "now move dest=%d, cur=%d, step=%d\n", this->_dest, this->_cur, this->_step);
                 if (this->_inter == 0) {
                     this->moveto(this->_dest);
                     // end of move for this servo
-                    this->_s.detach();
-                    return true;
+                    this->_finish = true;
                 } else {
                     int prev_pos = this->_cur;
                     this->moveto(this->_cur + this->_step);
@@ -284,9 +290,7 @@ public:
                     if ((this->_dest == this->_cur) // dest reached
                        or (sign(this->_dest - prev_pos) != sign(this->_dest - this->_cur))){ // dest overtaken
                         // end of move for this servo
-                        this->_s.detach();
-                        return true;
-
+                        this->_finish = true;
                     }
                 }
             }
@@ -297,7 +301,7 @@ public:
 
     void define_move(struct target *move, int wait) {
         this->_dest = this->_way * move->dest;
-        this->_inter = move->inter * 10;
+        this->_inter = move->inter ;
         this->_step = move->step ? move->step : 1;
         this->_accel = move->accel;
         if( sign(this->_dest - this->_cur) != sign(this->_step)) {
@@ -305,6 +309,7 @@ public:
             this->_step = -this->_step;
             this->_accel = -this->_accel;
         }
+        this->_finish = false;
         this->_wait = millis() + wait;
         P("***");
         Ppin(this->_pin, "define move half-ear inter=%u dest=%d, cur=%d\n", this->_inter, this->_dest, this->_cur);
@@ -427,10 +432,12 @@ void setup()
 
     server.begin();
 #endif
-
-    mvt_table[0].reset();
+    for (int i =0 ; i < NB_MVT ; i++) {
+        mvt_table[i].reset();
+        mvt_table[i].wait = 200;
+    }
     ears.define_move(&mvt_table[0]);
-    
+
     P("setup done\n");
 }
 
@@ -496,7 +503,7 @@ void mvt_penaud(void) /* XXX */
     mvt_table[3].reset();
     mvt_table[3].left.azi.dest = 100;/* */
     mvt_table[3].left.alt.dest = 5;
-    mvt_table[3].left.alt.inter = 10;
+    mvt_table[3].left.alt.inter = 30;
     mvt_table[3].left.alt.step = 1;
     mvt_table[3].right.azi.dest = -100;/**/
     mvt_table[3].right.alt.dest = 0;
@@ -505,7 +512,7 @@ void mvt_penaud(void) /* XXX */
     mvt_table[3].next =  &mvt_table[4];
 
     mvt_table[4].reset();
-    mvt_table[4].wait = 300 ;
+    mvt_table[4].wait = 5000 ;
 
     ears.define_move(&mvt_table[0]);
 
@@ -677,35 +684,147 @@ void mvt_content(void)
 
     mvt_table[2].reset();
     ears.define_move(&mvt_table[0]);
-
-
 }
 
 // 7
 void mvt_ecoute(void)
 {
+    /* not yet checked */
+    mvt_table[0].reset();
+    mvt_table[0].next = &mvt_table[1];
+
+    mvt_table[1].reset();
+    mvt_table[1].right.azi.dest = -100;
+    mvt_table[1].right.azi.inter = 10;
+    mvt_table[1].right.azi.step = 1;
+    mvt_table[1].right.azi.accel = 1;
+    mvt_table[1].left.azi.dest = 100;
+    mvt_table[1].left.azi.inter = 10;
+    mvt_table[1].left.azi.step = 1;
+    mvt_table[1].left.azi.accel = 1;
+    mvt_table[1].next =  &mvt_table[2];
+
+
+    mvt_table[2].reset();
+    mvt_table[2].wait = 300;
+    mvt_table[2].next =  &mvt_table[3];
+
+    mvt_table[3].reset();
+    mvt_table[3].wait = 300;
+    mvt_table[3].right.azi.dest = 100;
+    mvt_table[3].right.azi.inter = 10;
+    mvt_table[3].right.azi.step = 1;
+    mvt_table[3].right.azi.accel = 1;
+    mvt_table[3].left.azi.dest = -100;
+    mvt_table[3].left.azi.inter = 10;
+    mvt_table[3].left.azi.step = 1;
+    mvt_table[3].left.azi.accel = 1;
+    mvt_table[3].next =  &mvt_table[4];
+
+    mvt_table[4].reset();
+    mvt_table[4].wait = 300;
+    ears.define_move(&mvt_table[0]);
 }
 
 // 8
 void mvt_surprise(void)
 {
+    mvt_table[0].reset();
+    mvt_table[0].right.alt.dest = 35;
+    mvt_table[0].left.alt.dest = 35;
+    mvt_table[0].next = &mvt_table[1];
 
+    mvt_table[1].reset();
+    mvt_table[1].wait = 1000;
+    mvt_table[1].right.alt.dest = 0;
+    mvt_table[1].right.alt.inter = 30;
+    mvt_table[1].right.alt.step = 1;
+    mvt_table[1].right.alt.accel = 1;
+    mvt_table[1].left.alt.dest = 0;
+    mvt_table[1].left.alt.inter = 30;
+    mvt_table[1].left.alt.step = 1;
+    mvt_table[1].left.alt.accel = 1;
+    mvt_table[1].next =  &mvt_table[2];
+
+    mvt_table[2].reset();
+    mvt_table[2].wait = 5000;
+    ears.define_move(&mvt_table[0]);
 }
 
 // 9
 void mvt_baisse(void)
 {
+    mvt_table[0].reset();
+    mvt_table[0].next = &mvt_table[1];
+
+    mvt_table[1].reset();
+    mvt_table[1].right.alt.dest = -30;
+    mvt_table[1].right.alt.inter = 15;
+    mvt_table[1].right.alt.step = 1;
+    mvt_table[1].right.alt.accel = 1;
+    mvt_table[1].left.alt.dest = -30;
+    mvt_table[1].left.alt.inter = 15;
+    mvt_table[1].left.alt.step = 1;
+    mvt_table[1].left.alt.accel = 1;
+    mvt_table[1].next =  &mvt_table[2];
+
+    mvt_table[2].reset();
+    mvt_table[2].right.alt.dest = 90;
+    mvt_table[2].right.alt.inter = 15;
+    mvt_table[2].right.alt.step = 1;
+    mvt_table[2].right.alt.accel = 1;
+    mvt_table[2].left.alt.dest = 90;
+    mvt_table[2].left.alt.inter = 15;
+    mvt_table[2].left.alt.step = 1;
+    mvt_table[2].left.alt.accel = 1;
+    mvt_table[2].next =  &mvt_table[3];
+
+    mvt_table[3].reset();
+    ears.define_move(&mvt_table[0]);
 }
 
 // 10
 void mvt_tourne(void)
 {
+    mvt_table[0].reset();
+    mvt_table[0].next = &mvt_table[1];
+
+    mvt_table[1].reset();
+    mvt_table[1].right.azi.dest = 100;
+    mvt_table[1].right.azi.inter = 15;
+    mvt_table[1].right.azi.step = 1;
+    mvt_table[1].right.azi.accel = 1;
+    mvt_table[1].left.azi.dest = 100;
+    mvt_table[1].left.azi.inter = 15;
+    mvt_table[1].left.azi.step = 1;
+    mvt_table[1].left.azi.accel = 1;
+    mvt_table[1].next =  &mvt_table[2];
+
+
+    mvt_table[2].reset();
+    mvt_table[2].right.azi.dest = -100;
+    mvt_table[2].right.azi.inter = 10;
+    mvt_table[2].right.azi.step = 1;
+    mvt_table[2].right.azi.accel = 1;
+    mvt_table[2].left.azi.dest = -100;
+    mvt_table[2].left.azi.inter = 10;
+    mvt_table[2].left.azi.step = 1;
+    mvt_table[2].left.azi.accel = 1;
+    mvt_table[2].next =  &mvt_table[2];
+
+
+
+    mvt_table[3].reset();
+    ears.define_move(&mvt_table[0]);
+
+
 }
 
 // 11
 void mvt_reset(void)
 {
     mvt_table[0].reset();
+    mvt_table[0].wait = 300;
     ears.define_move(&mvt_table[0]);
 }
 
