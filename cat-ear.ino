@@ -661,6 +661,23 @@ void mvt_aguet(void)
 //6
 void mvt_content(void)
 {
+    mvt_table[0].reset();
+    mvt_table[0].right.alt.dest = -50;
+    mvt_table[0].left.alt.dest = 50;
+    mvt_table[0].wait = 300;
+    mvt_table[0].next = &mvt_table[1];
+
+    mvt_table[1].reset();
+    mvt_table[1].right.alt.dest = 50;
+    mvt_table[1].left.alt.dest = -50;
+    mvt_table[1].wait = 300;
+    mvt_table[1].count = 3;
+    mvt_table[1].next_if_loop = &mvt_table[0];
+    mvt_table[1].next =  &mvt_table[2];
+
+    mvt_table[2].reset();
+    ears.define_move(&mvt_table[0]);
+
 
 }
 
