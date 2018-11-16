@@ -4,6 +4,8 @@
 #include <Servo.h>
 #endif
 
+#define RESET_WAIT 10
+
 //////////////////////
 // Pins Definitions //
 //////////////////////
@@ -445,6 +447,7 @@ void setup()
 void mvt_triste(void) /* Ok for pos, check time */
 {
     mvt_table[0].reset();
+    mvt_table[0].wait = RESET_WAIT;
     mvt_table[0].right.alt.dest = -35; /**/
     mvt_table[0].left.alt.dest = -35; /**/
     mvt_table[0].next = &mvt_table[1];
@@ -468,14 +471,16 @@ void mvt_triste(void) /* Ok for pos, check time */
     mvt_table[2].next =  &mvt_table[3];
 
     mvt_table[3].reset();
+    mvt_table[3].wait = RESET_WAIT;
 
     ears.define_move(&mvt_table[0]);
 }
 
 //2
-void mvt_penaud(void) /* XXX */
+void mvt_penaud(void)
 {
     mvt_table[0].reset();
+    mvt_table[0].wait = RESET_WAIT;
     mvt_table[0].next = &mvt_table[1];
 
     mvt_table[1].reset();
@@ -522,6 +527,7 @@ void mvt_penaud(void) /* XXX */
 void mvt_gauche(void)
 {
     mvt_table[0].reset();
+    mvt_table[0].wait = RESET_WAIT;
     mvt_table[0].next = &mvt_table[1];
 
     mvt_table[1].reset();
@@ -557,6 +563,7 @@ void mvt_gauche(void)
     mvt_table[4].next =  &mvt_table[5];
 
     mvt_table[5].reset();
+    mvt_table[5].wait = RESET_WAIT;
 
     ears.define_move(&mvt_table[0]);
 }
@@ -565,6 +572,7 @@ void mvt_gauche(void)
 void mvt_droit(void)
 {
     mvt_table[0].reset();
+    mvt_table[0].wait = RESET_WAIT;
     mvt_table[0].next = &mvt_table[1];
 
     mvt_table[1].reset();
@@ -600,6 +608,7 @@ void mvt_droit(void)
     mvt_table[4].next =  &mvt_table[5];
 
     mvt_table[5].reset();
+    mvt_table[5].wait = RESET_WAIT;
 
     ears.define_move(&mvt_table[0]);
 }
@@ -608,6 +617,7 @@ void mvt_droit(void)
 void mvt_aguet(void)
 {
     mvt_table[0].reset();
+    mvt_table[0].wait = RESET_WAIT;
     mvt_table[0].next = &mvt_table[1];
 
     mvt_table[1].reset();
@@ -660,6 +670,7 @@ void mvt_aguet(void)
     mvt_table[4].next =  &mvt_table[5];
 
     mvt_table[5].reset();
+    mvt_table[5].wait = RESET_WAIT;
 
     ears.define_move(&mvt_table[0]);
 
@@ -683,6 +694,7 @@ void mvt_content(void)
     mvt_table[1].next =  &mvt_table[2];
 
     mvt_table[2].reset();
+    mvt_table[2].wait = RESET_WAIT;
     ears.define_move(&mvt_table[0]);
 }
 
@@ -691,6 +703,7 @@ void mvt_ecoute(void)
 {
     /* not yet checked */
     mvt_table[0].reset();
+    mvt_table[0].wait = RESET_WAIT;
     mvt_table[0].next = &mvt_table[1];
 
     mvt_table[1].reset();
@@ -732,6 +745,7 @@ void mvt_surprise(void)
     mvt_table[0].reset();
     mvt_table[0].right.alt.dest = 35;
     mvt_table[0].left.alt.dest = 35;
+    mvt_table[0].wait = RESET_WAIT;
     mvt_table[0].next = &mvt_table[1];
 
     mvt_table[1].reset();
@@ -755,6 +769,7 @@ void mvt_surprise(void)
 void mvt_baisse(void)
 {
     mvt_table[0].reset();
+    mvt_table[0].wait = RESET_WAIT;
     mvt_table[0].next = &mvt_table[1];
 
     mvt_table[1].reset();
@@ -780,6 +795,7 @@ void mvt_baisse(void)
     mvt_table[2].next =  &mvt_table[3];
 
     mvt_table[3].reset();
+    mvt_table[3].wait = RESET_WAIT;
     ears.define_move(&mvt_table[0]);
 }
 
@@ -787,6 +803,7 @@ void mvt_baisse(void)
 void mvt_tourne(void)
 {
     mvt_table[0].reset();
+    mvt_table[0].wait = 10;
     mvt_table[0].next = &mvt_table[1];
 
     mvt_table[1].reset();
@@ -815,6 +832,7 @@ void mvt_tourne(void)
 
 
     mvt_table[3].reset();
+    mvt_table[3].wait = 10;
     ears.define_move(&mvt_table[0]);
 
 
