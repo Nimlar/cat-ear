@@ -259,12 +259,9 @@ public:
         this->_s.detach();
     }
 
-    /*void moveto(int angle, unsigned long now) {
-        this->_moveto(angle, now);
-    }*/
-    void moveto(int offset) {
+    void moveto(int offset, unsigned long now) {
         Ppin(this->_pin, "half ear move to offset %d\n", offset);
-        this->_moveto(offset, millis());
+        this->_moveto(offset, now);
     }
     bool step(unsigned long now) {
         // is it time ?
@@ -282,12 +279,12 @@ public:
                 }
                 Ppin(this->_pin, "now move dest=%d, cur=%d, step=%d\n", this->_dest, this->_cur, this->_step);
                 if (this->_inter == 0) {
-                    this->moveto(this->_dest);
+                    this->moveto(this->_dest, now);
                     // end of move for this servo
                     this->_finish = true;
                 } else {
                     int prev_pos = this->_cur;
-                    this->moveto(this->_cur + this->_step);
+                    this->moveto(this->_cur + this->_step, now);
                     this->_step += this->_accel;
                     if ((this->_dest == this->_cur) // dest reached
                        or (sign(this->_dest - prev_pos) != sign(this->_dest - this->_cur))){ // dest overtaken
@@ -301,7 +298,7 @@ public:
         }
     }
 
-    void define_move(struct target *move, int wait) {
+    void define_move(struct target *move, unsigned long at) {
         this->_dest = this->_way * move->dest;
         this->_inter = move->inter ;
         this->_step = move->step ? move->step : 1;
@@ -312,7 +309,7 @@ public:
             this->_accel = -this->_accel;
         }
         this->_finish = false;
-        this->_wait = millis() + wait;
+        this->_wait = at;
         P("***");
         Ppin(this->_pin, "define move half-ear inter=%u dest=%d, cur=%d\n", this->_inter, this->_dest, this->_cur);
     }
@@ -334,12 +331,6 @@ class Ear {
         this->_alt.detach();
     }
 
-
-    void moveto(int aziOffset, int altOffset) {
-        this->_azi.moveto(aziOffset);
-        this->_alt.moveto(altOffset);
-    }
-
     bool step(unsigned long now) {
         bool finish;
         finish = this->_alt.step(now);
@@ -347,9 +338,9 @@ class Ear {
         return finish;
     }
 
-    void define_move(struct ear_target *move, int wait) {
-        this->_alt.define_move(&move->alt, wait);
-        this->_azi.define_move(&move->azi, wait);
+    void define_move(struct ear_target *move, unsigned long at) {
+        this->_alt.define_move(&move->alt, at);
+        this->_azi.define_move(&move->azi, at);
     }
 };
 
@@ -365,20 +356,19 @@ struct ears {
                 left(lAltPin, lAltNeuter, lAziPin, lAziNeuter, -1),
                 right(rAltPin, rAltNeuter, rAziPin, rAziNeuter, 1) {}
 
-    bool step() {
+    bool step(unsigned long now) {
         bool finish;
         if(move) {
-            unsigned long now = millis();
             finish = this->left.step(now);
             finish = this->right.step(now) and finish ;
             if(finish) {
                 P("finish move i=%d, count=%d\n", move->i, move->count);
                 if (--(move->i) <= 0) {
                     P("next move %p\n\n", move->next);
-                    this->define_move(move->next);
+                    this->define_move(move->next, now);
                 } else {
                     P("next loop move %p\n\n", move->next_if_loop);
-                    this->define_move(move->next_if_loop);
+                    this->define_move(move->next_if_loop, now);
                 }
 
             }
@@ -387,15 +377,15 @@ struct ears {
             return true;
         }
     }
-    void define_move(struct ears_target* m) {
+    void define_move(struct ears_target* m, unsigned long now) {
         this->move = m;
         if (m) {
             if (m->i <= 0)
                 m->i = m->count;
             this->left.attach();
-            this->left.define_move(&m->left, m->wait);
+            this->left.define_move(&m->left, m->wait + now);
             this->right.attach();
-            this->right.define_move(&m->right, m->wait);
+            this->right.define_move(&m->right, m->wait + now );
         } else {
             this->left.detach();
             this->right.detach();
@@ -438,13 +428,13 @@ void setup()
         mvt_table[i].reset();
         mvt_table[i].wait = 200;
     }
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], millis());
 
     P("setup done\n");
 }
 
 //1
-void mvt_triste(void) /* Ok for pos, check time */
+void mvt_triste(unsigned long now) /* Ok for pos, check time */
 {
     mvt_table[0].reset();
     mvt_table[0].wait = RESET_WAIT;
@@ -473,11 +463,11 @@ void mvt_triste(void) /* Ok for pos, check time */
     mvt_table[3].reset();
     mvt_table[3].wait = RESET_WAIT;
 
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 }
 
 //2
-void mvt_penaud(void)
+void mvt_penaud(unsigned long now)
 {
     mvt_table[0].reset();
     mvt_table[0].wait = RESET_WAIT;
@@ -519,12 +509,12 @@ void mvt_penaud(void)
     mvt_table[4].reset();
     mvt_table[4].wait = 5000 ;
 
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 
 }
 
 //3
-void mvt_gauche(void)
+void mvt_gauche(unsigned long now)
 {
     mvt_table[0].reset();
     mvt_table[0].wait = RESET_WAIT;
@@ -565,11 +555,11 @@ void mvt_gauche(void)
     mvt_table[5].reset();
     mvt_table[5].wait = RESET_WAIT;
 
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 }
 
 //4
-void mvt_droit(void)
+void mvt_droit(unsigned long now)
 {
     mvt_table[0].reset();
     mvt_table[0].wait = RESET_WAIT;
@@ -610,11 +600,11 @@ void mvt_droit(void)
     mvt_table[5].reset();
     mvt_table[5].wait = RESET_WAIT;
 
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 }
 
 //5
-void mvt_aguet(void)
+void mvt_aguet(unsigned long now)
 {
     mvt_table[0].reset();
     mvt_table[0].wait = RESET_WAIT;
@@ -672,12 +662,12 @@ void mvt_aguet(void)
     mvt_table[5].reset();
     mvt_table[5].wait = RESET_WAIT;
 
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 
 }
 
 //6
-void mvt_content(void)
+void mvt_content(unsigned long now)
 {
     mvt_table[0].reset();
     mvt_table[0].right.alt.dest = -50;
@@ -695,11 +685,11 @@ void mvt_content(void)
 
     mvt_table[2].reset();
     mvt_table[2].wait = RESET_WAIT;
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 }
 
 // 7
-void mvt_ecoute(void)
+void mvt_ecoute(unsigned long now)
 {
     /* not yet checked */
     mvt_table[0].reset();
@@ -736,11 +726,11 @@ void mvt_ecoute(void)
 
     mvt_table[4].reset();
     mvt_table[4].wait = 300;
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 }
 
 // 8
-void mvt_surprise(void)
+void mvt_surprise(unsigned long now)
 {
     mvt_table[0].reset();
     mvt_table[0].right.alt.dest = 35;
@@ -762,11 +752,11 @@ void mvt_surprise(void)
 
     mvt_table[2].reset();
     mvt_table[2].wait = 5000;
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 }
 
 // 9
-void mvt_baisse(void)
+void mvt_baisse(unsigned long now)
 {
     mvt_table[0].reset();
     mvt_table[0].wait = RESET_WAIT;
@@ -796,11 +786,11 @@ void mvt_baisse(void)
 
     mvt_table[3].reset();
     mvt_table[3].wait = RESET_WAIT;
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 }
 
 // 10
-void mvt_tourne(void)
+void mvt_tourne(unsigned long now)
 {
     mvt_table[0].reset();
     mvt_table[0].wait = 10;
@@ -833,22 +823,25 @@ void mvt_tourne(void)
 
     mvt_table[3].reset();
     mvt_table[3].wait = 10;
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 
 
 }
 
 // 11
-void mvt_reset(void)
+void mvt_reset(unsigned long now)
 {
     mvt_table[0].reset();
     mvt_table[0].wait = 300;
-    ears.define_move(&mvt_table[0]);
+    ears.define_move(&mvt_table[0], now);
 }
 
 void loop()
 {
-  ears.step();
+  unsigned long now;
+
+  now = millis();
+  ears.step(now);
 
 #ifndef PC_EMUL
 // Check if a client has connected
@@ -865,27 +858,27 @@ void loop()
 
   // Match the request
   if (request.indexOf("/mvt1/") != -1)  {
-    mvt_triste();
+    mvt_triste(now);
   } else if (request.indexOf("/mvt2/") != -1)  {
-    mvt_penaud();
+    mvt_penaud(now);
   } else if (request.indexOf("/mvt3/") != -1)  {
-    mvt_gauche();
+    mvt_gauche(now);
   } else if (request.indexOf("/mvt4/") != -1)  {
-    mvt_droit();
+    mvt_droit(now);
   } else if (request.indexOf("/mvt5/") != -1)  {
-    mvt_aguet();
+    mvt_aguet(now);
   } else if (request.indexOf("/mvt6/") != -1)  {
-    mvt_content();
+    mvt_content(now);
   } else if (request.indexOf("/mvt7/") != -1)  {
-    mvt_ecoute();
+    mvt_ecoute(now);
   } else if (request.indexOf("/mvt8/") != -1)  {
-    mvt_surprise();
+    mvt_surprise(now);
   } else if (request.indexOf("/mvt9/") != -1)  {
-    mvt_baisse();
+    mvt_baisse(now);
   } else if (request.indexOf("/mvt10/") != -1)  {
-    mvt_tourne();
+    mvt_tourne(now);
   } else if (request.indexOf("/mvt11/") != -1)  {
-    mvt_reset();
+    mvt_reset(now);
   }
 
   // Return the response
