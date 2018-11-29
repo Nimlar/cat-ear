@@ -1,20 +1,27 @@
-//arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2 .
-#ifndef PC_EMUL
-#include <ESP8266WiFi.h>
-#include <Servo.h>
-#endif
+//#include <WiFi.h>
+#include <BLEDevice.h>
+#include <BLEUtils.h>
+#include <BLEServer.h>
+#include <ESP32Servo.h>
 
 #define RESET_WAIT 10
+#define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+BLECharacteristic *pCharacteristic;
 
-//////////////////////
-// Pins Definitions //
-//////////////////////
-#define       LeftAltPin                     0  //D3 blanc
-#define       LeftAziPin                     2  //D4 bleu
-#define       RightAltPin                    16 //D0 Rouge
-#define       RightAziPin                    5  //D1 noir
-
-
+// Published values for SG90 servos; adjust if needed
+int minUs = 500;
+int maxUs = 2400;
+                                                               /* GND ■o              ■o GND   */
+                                                               /*     oo              oo 27 ???*/
+// These are all GPIO pins on the ESP32                        /*     oo 26       _22_oo 25    */
+// Recommended pins include 2,4,12-19,21-23,25-27,32-33·       /*     oo_18_      _21_oo 32    */
+#define       LeftAltPin                     18 // blanc       /*  33 oo_19_       16 oo 12    */
+#define       LeftAziPin                     19 // bleu        /*     oo 23        17 oo 04    */
+#define       RightAltPin                    21 // Rouge       /*  14 oo          GND oo       */
+#define       RightAziPin                    22 // noir        /*     oo 3.3V      5V oo 02    */
+                                                               /*     oo 13        15 oo       */
+                                                               /*     oo              oo       */
 #define       INIT_LEFT_ALT              50
 #define       INIT_RIGHT_ALT             85
 #define       INIT_LEFT_AZI              100
@@ -41,123 +48,7 @@ switch ( pin ) {
 #endif
 #endif
 
-#ifdef ESP8266
-#endif
-static const char *http_answer=" HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n";
-static const char *html_answer=R"rawHTML(
-<html>
-<head>
-<meta charset="utf-8">
-<title>Neko_Mimi</title>
-<style>
-html, body {
-  background: -webkit-linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
-  background: -moz-linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
-  background: linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
-  background-size: 10px 10px;
-}
-#main {
-  margin-bottom: 2em;
-  vertical-align:middle;
-}
-.page-header {
-  border-bottom-color: #b0b4bc;
-  font-size: 200%;
-  text-align:center;
-}
-.ios-dl .legend {
-  display: block;
-  padding: 0;
-  margin: 20px 0px 0px;
-  font-size: 21px;
-  line-height: 40px;
-  color: #8B91A5;
-  font-weight: bold;
-}
-.ios-dl .definition-group {
-  background: #fff;
-  border-radius: 10px;
-  border: 1px solid #b0b4bc;
-  box-shadow: 0 1px 1px 0 white, 0 1px 1px 0 #d9dbdf inset;
-}
-.ios-dl dl {
-  padding: 1em;
-  margin: 0px;
-  background: transparent;
-  border-top: 1px solid #d9dbdf;
-}
-.ios-dl dl:first-child {
-  border: none;
-}
-.ios-dl dt {
-  text-align: center;
-  font-size: 250%;
-  font-weight: bold;
-}
-a:hover, a:visited, a:link, a:active
-{
-  text-decoration: none;
-  display:block;width:100%;height:100%;
-  color:  #A0A0A0;
-  font-size: 150%;
-}
-img {
-  vertical-align:middle;
-}
-</style>
-</head>
-
-<body>
-<div id="main" class="container-fluid">
-  <div class="page-header">
-  </div>
-  <div class="row-fluid">
-    <div class="span12">
-      <div class="main ios-dl">
-        <span class="legend"></span>
-        <div class="definition-group">
-          <dl class="dl-horizontal">
-            <dt><a href="/mvt1/">Triste</a></dt>
-          </dl>
-          <dl class="dl-horizontal">
-            <dt><a href="/mvt2/">Penaud</a></dt>
-          </dl>
-          <dl class="dl-horizontal">
-            <dt><a href="/mvt3/">Oreille Gauche</a></dt>
-          </dl>
-          <dl class="dl-horizontal">
-            <dt><a href="/mvt4/">Oreille Droite</a></dt>
-          </dl>
-          <dl class="dl-horizontal">
-            <dt><a href="/mvt5/">Aux aguets</a></dt>
-          </dl>
-          <dl class="dl-horizontal">
-            <dt><a href="/mvt6/">Content</a></dt>
-          </dl>
-          <dl class="dl-horizontal">
-            <dt><a href="/mvt7/">écoute</a></dt>
-          </dl>
-          <dl class="dl-horizontal">
-            <dt><a href="/mvt8/">Surprise</a></dt>
-          </dl>
-          <dl class="dl-horizontal">
-            <dt><a href="/mvt9/">Baissées</a></dt>
-          </dl>
-          <dl class="dl-horizontal">
-            <dt><a href="/mvt10/">Tournées</a></dt>
-          </dl>
-         <dl class="dl-horizontal">
-            <dt><a href="/mvt11/">Reset Origine</a></dt>
-          </dl>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
-</html>
-
-)rawHTML";
-const char WiFiAPPSK[] = "oreilles"; //password wifi
+//const char WiFiAPPSK[] = "oreilles"; //password wifi
 
 
 template <typename T>
@@ -221,7 +112,7 @@ static struct ears_target mvt_table[NB_MVT];
 // Wifi Definitions //
 /////////////////////
 
-WiFiServer server(80);
+//WiFiServer server(80);
 
 class HalfEar {
 
@@ -250,11 +141,13 @@ class HalfEar {
     }
 
 public:
-    HalfEar(int pin, int neuter, int way) : _pin(pin), _neuter(neuter), _way(sign(way)), _cur(-100), _finish(false) {}
+    HalfEar(int pin, int neuter, int way) : _pin(pin), _neuter(neuter), _way(sign(way)), _cur(-100), _finish(false) {
+         _s.setPeriodHertz(50); // Standard 50hz servo
+    }
 
     void attach() {
         Ppin(this->_pin, "Attach\n");
-        this->_s.attach(this->_pin);
+        this->_s.attach(this->_pin, minUs, maxUs);
     }
     void detach() {
         Ppin(this->_pin, "Detach\n");
@@ -398,13 +291,23 @@ struct ears {
        RightAltPin, INIT_RIGHT_ALT,
        RightAziPin, INIT_RIGHT_AZI) ;
 
+bool incomming_msg = false;
+
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      incomming_msg = true;
+    }
+};
+
+
 void setup()
 {
-#ifndef PC_EMUL
+#if 0
     WiFi.mode(WIFI_AP);
 
     // Do a little work to get a unique-ish name. Append the
     // last two bytes of the MAC (HEX'd) to "Thing-":
+    #define WL_MAC_ADDR_LENGTH 6
     uint8_t mac[WL_MAC_ADDR_LENGTH];
     WiFi.softAPmacAddress(mac);
     String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
@@ -420,12 +323,27 @@ void setup()
 
     WiFi.softAP(AP_NameChar, WiFiAPPSK);
 
-#ifdef DEBUG_ESP_PORT
-    Serial.begin(115200);
-#endif
 
     server.begin();
 #endif
+
+    Serial.begin(115200);
+    Serial.println("Starting BLE work!");
+
+    BLEDevice::init("CatEars");
+    BLEServer *pServer = BLEDevice::createServer();
+    BLEService *pService = pServer->createService(SERVICE_UUID);
+    pCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID,
+                                            BLECharacteristic::PROPERTY_READ |
+                                            BLECharacteristic::PROPERTY_WRITE);
+
+    pCharacteristic->setCallbacks(new MyCallbacks());
+    pCharacteristic->setValue("Started");
+    pService->start();
+    incomming_msg = false;
+    BLEAdvertising *pAdvertising = pServer->getAdvertising();
+    pAdvertising->start();
+
     for (int i =0 ; i < NB_MVT ; i++) {
         mvt_table[i].reset();
         mvt_table[i].wait = 200;
@@ -845,49 +763,33 @@ void loop()
   now = millis();
   ears.step(now);
 
-#ifndef PC_EMUL
-// Check if a client has connected
-  WiFiClient client = server.available();
-  if (!client) {
-    return;
+  if(incomming_msg) {
+    std::string value = pCharacteristic->getValue();
+    incomming_msg = false;
+
+    if (value == "triste") {
+        mvt_triste(now);
+    } else if (value == "penaud") {
+        mvt_penaud(now);
+    } else if (value == "gauche") {
+        mvt_gauche(now);
+    } else if (value == "droit") {
+        mvt_droit(now);
+    } else if (value == "aguet") {
+        mvt_aguet(now);
+    } else if (value == "content") {
+        mvt_content(now);
+    } else if (value == "ecoute") {
+        mvt_ecoute(now);
+    } else if (value == "surprise") {
+        mvt_surprise(now);
+    } else if (value == "baisse") {
+        mvt_baisse(now);
+    } else if (value == "tourne") {
+        mvt_tourne(now);
+    } else if (value == "reset") {
+        mvt_reset(now);
+    }
   }
-
-    // Read the first line of the request
-  String request = client.readStringUntil('\r');
-  client.flush();
-
-
-
-  // Match the request
-  if (request.indexOf("/mvt1/") != -1)  {
-    mvt_triste(now);
-  } else if (request.indexOf("/mvt2/") != -1)  {
-    mvt_penaud(now);
-  } else if (request.indexOf("/mvt3/") != -1)  {
-    mvt_gauche(now);
-  } else if (request.indexOf("/mvt4/") != -1)  {
-    mvt_droit(now);
-  } else if (request.indexOf("/mvt5/") != -1)  {
-    mvt_aguet(now);
-  } else if (request.indexOf("/mvt6/") != -1)  {
-    mvt_content(now);
-  } else if (request.indexOf("/mvt7/") != -1)  {
-    mvt_ecoute(now);
-  } else if (request.indexOf("/mvt8/") != -1)  {
-    mvt_surprise(now);
-  } else if (request.indexOf("/mvt9/") != -1)  {
-    mvt_baisse(now);
-  } else if (request.indexOf("/mvt10/") != -1)  {
-    mvt_tourne(now);
-  } else if (request.indexOf("/mvt11/") != -1)  {
-    mvt_reset(now);
-  }
-
-  // Return the response
-  client.print(http_answer);
-  client.print(html_answer);
-#endif
-  // The client will actually be disconnected
-  // when the function returns and 'client' object is detroyed
 }
 

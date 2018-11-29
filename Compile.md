@@ -21,6 +21,12 @@ arduino-cli core install esp8266:esp8266
 arduino-cli core install esp32:esp32
 ```
 
+Install the esp32 Servo library
+
+```sh
+arduino-cli lib install ESP32Servo
+```
+
 Now we can compile the sketch:
 
 ```sh

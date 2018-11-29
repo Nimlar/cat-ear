@@ -1,7 +1,7 @@
 TARGET=esp32 esp82 x86test
 
-BUILD_DIR[esp32] = cat-ears-bt
-BUILD_DIR[esp82] = cat-ears-web
+BUILD_DIR[esp32] = cat-ears-bt/
+BUILD_DIR[esp82] = cat-ears-web/
 BUILD_DIR[x86test] = esp82/test
 
 COMMAND[esp82] = arduino-cli --fqbn esp8266:esp8266:nodemcuv2

@@ -1,0 +1,199 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>Neko_Mimi</title>
+<!--
+    understood from
+    https://deqingsun.github.io/webBluetoothWithCC2541/webBluetoothSimpleBLEPeripheral.html
+ -->
+<style>
+html, body {
+  background: -webkit-linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
+  background: -moz-linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
+  background: linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
+  background-size: 10px 10px;
+}
+#main {
+  margin-bottom: 2em;
+  vertical-align:middle;
+}
+.page-header {
+  border-bottom-color: #b0b4bc;
+  font-size: 200%;
+  text-align:center;
+}
+.ios-dl .legend {
+  display: block;
+  padding: 0;
+  margin: 20px 0px 0px;
+  font-size: 21px;
+  line-height: 40px;
+  color: #8B91A5;
+  font-weight: bold;
+}
+.ios-dl .definition-group {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #b0b4bc;
+  box-shadow: 0 1px 1px 0 white, 0 1px 1px 0 #d9dbdf inset;
+}
+.ios-dl dl {
+  padding: 1em;
+  margin: 0px;
+  background: transparent;
+  border-top: 1px solid #d9dbdf;
+}
+.ios-dl dl:first-child {
+  border: none;
+}
+.ios-dl dt {
+  text-align: center;
+  font-size: 250%;
+  font-weight: bold;
+}
+a:hover, a:visited, a:link, a:active
+{
+  text-decoration: none;
+  display:block;
+  color:  #A0A0A0;
+  font-size: 125%
+}
+img {
+  vertical-align:middle;
+}
+</style>
+</head>
+
+<body>
+<script>
+//from https://beaufortfrancois.github.io/sandbox/web-bluetooth/generator/
+class CatEars {
+
+    constructor() {
+        this.device = null;
+        this.onDisconnected = this.onDisconnected.bind(this);
+    }
+
+    request() {
+        let options = {
+            "filters": [{
+                "services": ["4fafc201-1fb5-459e-8fcc-c5c9c331914b"]
+            }]
+        };
+        return navigator.bluetooth.requestDevice(options)
+            .then(device => {
+                console.log(this);
+                this.device = device;
+                this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
+            });
+    }
+
+    connect() {
+        if (!this.device) {
+            return Promise.reject('Device is not connected.');
+        }
+        return this.device.gatt.connect();
+    }
+
+    readInfo() {
+        return this.device.gatt.getPrimaryService("4fafc201-1fb5-459e-8fcc-c5c9c331914b")
+            .then(service => service.getCharacteristic("beb5483e-36e1-4688-b7f5-ea07361b26a8"))
+            .then(characteristic => characteristic.readValue());
+    }
+
+    writeInfo(data) {
+        return this.device.gatt.getPrimaryService("4fafc201-1fb5-459e-8fcc-c5c9c331914b")
+            .then(service => service.getCharacteristic("beb5483e-36e1-4688-b7f5-ea07361b26a8"))
+            .then(characteristic => characteristic.writeValue(data));
+    }
+
+    startInfoNotifications(listener) {
+        return this.device.gatt.getPrimaryService("4fafc201-1fb5-459e-8fcc-c5c9c331914b")
+            .then(service => service.getCharacteristic("beb5483e-36e1-4688-b7f5-ea07361b26a8"))
+            .then(characteristic => characteristic.startNotifications())
+            .then(characteristic => characteristic.addEventListener('characteristicvaluechanged', listener));
+    }
+
+    stopInfoNotifications(listener) {
+        return this.device.gatt.getPrimaryService("4fafc201-1fb5-459e-8fcc-c5c9c331914b")
+            .then(service => service.getCharacteristic("beb5483e-36e1-4688-b7f5-ea07361b26a8"))
+            .then(characteristic => characteristic.stopNotifications())
+            .then(characteristic => characteristic.removeEventListener('characteristicvaluechanged', listener));
+    }
+
+    disconnect() {
+        if (!this.device) {
+            return Promise.reject('Device is not connected.');
+        }
+        return this.device.gatt.disconnect();
+    }
+
+    onDisconnected() {
+        console.log('Device is disconnected.');
+    }
+}
+
+var catEars = new CatEars();
+
+function appendHtml(el, str, to_create) {
+    var elem = document.createElement(to_create);
+    elem.innerHTML = str;
+    return el.appendChild(elem);
+}
+
+var movement_list = {
+    "triste" : "Triste",
+    "penaud" : "Penaud",
+    "gauche" : "Oreille Gauche",
+    "droite" : "Oreille Droite",
+    "aguet" : "Aux aguets",
+    "content" : "Content",
+    "ecoute" : "écoute",
+    "surprise" : "Surprise",
+    "baissé" : "Baissées",
+    "tourne" : "Tournées",
+    "reset" : "Reset Origine"
+}
+
+function send_info(e)
+{
+    mvt = e.target.attributes["href"].nodeValue.substring(1);
+    let encoder = new TextEncoder();
+    let buffer = encoder.encode(mvt);
+    catEars.writeInfo(buffer);
+}
+
+
+document.getElementById('buttonConnect').addEventListener('click', event => {
+    catEars.request()
+    .then(_ => catEars.connect())
+    .then(_ => {
+        var movelist_div = document.querySelector("#movelist");
+        for(var key in movement_list) {
+            elem = appendHtml(movelist_div, '<dl class="dl-horizontal"><dt><a href="#'+ key +'" class="move">'+ movement_list[key] +'</a></dt></dl>' , "dl", {"class" : "dl-horizontal"}
+                    );
+            elem.addEventListener('click', event => {send_info(event);}, false);
+        }
+    })
+    .catch(error => { console.log(error) });
+});
+
+
+
+</script>
+<div id="main" class="container-fluid">
+  <div class="page-header">
+      <button type="button" id="buttonConnect">Connect</button>
+  </div>
+  <div class="row-fluid">
+    <div class="span12">
+      <div class="main ios-dl">
+        <span class="legend"></span>
+        <div class="definition-group" id=movemlist>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+
