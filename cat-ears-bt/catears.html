@@ -163,24 +163,8 @@ function send_info(e)
     catEars.writeInfo(buffer);
 }
 
-
-document.getElementById('buttonConnect').addEventListener('click', event => {
-    catEars.request()
-    .then(_ => catEars.connect())
-    .then(_ => {
-        var movelist_div = document.querySelector("#movelist");
-        for(var key in movement_list) {
-            elem = appendHtml(movelist_div, '<dl class="dl-horizontal"><dt><a href="#'+ key +'" class="move">'+ movement_list[key] +'</a></dt></dl>' , "dl", {"class" : "dl-horizontal"}
-                    );
-            elem.addEventListener('click', event => {send_info(event);}, false);
-        }
-    })
-    .catch(error => { console.log(error) });
-});
-
-
-
 </script>
+
 <div id="main" class="container-fluid">
   <div class="page-header">
       <button type="button" id="buttonConnect">Connect</button>
@@ -188,12 +172,28 @@ document.getElementById('buttonConnect').addEventListener('click', event => {
   <div class="row-fluid">
     <div class="span12">
       <div class="main ios-dl">
-        <span class="legend"></span>
         <div class="definition-group" id=movemlist>
         </div>
       </div>
     </div>
   </div>
+</div>
+<script>
+document.getElementById('buttonConnect').addEventListener('click', event => {
+    catEars.request()
+    .then(_ => catEars.connect())
+    .then(_ => {
+        var movelist_div = document.querySelector("#movelist");
+        for(var key in movement_list) {
+            elem = appendHtml(movelist_div, '<dl class="dl-horizontal"><dt><a href="#'+ key +'" class="move">'+ movement_list[key] +'<\/a><\/dt><\/dl>' , "dl", {"class" : "dl-horizontal"}
+                    );
+            elem.addEventListener('click', event => {send_info(event);}, false);
+        }
+    })
+    .catch(error => { console.log(error) });
+});
+</script>
+
 </body>
 </html>
 
