@@ -763,6 +763,32 @@ void mvt_reset(unsigned long now)
     ears.define_move(&mvt_table[0], now);
 }
 
+// manual
+void mvt_manual(unsigned long now, int coord[4])
+{
+    mvt_table[0].reset();
+    mvt_table[0].right.azi.dest = coord[0];
+    mvt_table[0].right.azi.inter = 10;
+    mvt_table[0].right.azi.step = 1;
+    mvt_table[0].right.alt.dest = coord[1];
+    mvt_table[0].right.alt.inter = 10;
+    mvt_table[0].right.alt.step = 1;
+    mvt_table[0].left.azi.dest = coord[2];
+    mvt_table[0].left.azi.inter = 10;
+    mvt_table[0].left.azi.step = 1;
+    mvt_table[0].left.alt.dest = coord[3];
+    mvt_table[0].left.alt.inter = 10;
+    mvt_table[0].left.alt.step = 1;
+    mvt_table[0].count = 3;
+    mvt_table[0].next_if_loop = &mvt_table[0];
+    mvt_table[0].next =  NULL ;
+
+
+    ears.define_move(&mvt_table[0], now);
+
+
+}
+
 void loop()
 {
   unsigned long now;
