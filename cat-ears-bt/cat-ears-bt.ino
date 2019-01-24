@@ -3,6 +3,7 @@
 #include <BLEUtils.h>
 #include <BLEServer.h>
 #include <ESP32Servo.h>
+#include <string>
 
 #define RESET_WAIT 500
 #define DETACH_WAIT 500
@@ -816,7 +817,23 @@ void loop()
     incomming_msg = false;
 
     alwaysP("manage %s\n", value.c_str());
-    if (value == "triste") {
+    if (value.rfind("manual", 0) == 0) {
+        // start with manual
+        // we expect "manual:razi:ralt:lazi,lalt"
+        // get this num value
+        std::string sep = ":";
+        size_t start = sizeof("manual"); // last \o is include and it's fine
+        size_t end = value.find(sep, start);
+        int i = 0;
+        int coord[4];
+        while (end != std::string::npos) {
+            coord[i++] = std::atoi(value.substr(start, end).c_str()) ;
+            start = end + 1;
+            end = value.find(sep, start);
+        }
+        coord[i++] = std::atoi(value.substr(start, end).c_str()) ;
+        mvt_manual(now, coord);
+    } else if (value == "triste") {
         mvt_triste(now);
     } else if (value == "penaud") {
         mvt_penaud(now);
