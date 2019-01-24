@@ -30,7 +30,8 @@ int maxUs = 2400;
 
 
 #define alwaysP(...) Serial.printf( __VA_ARGS__ )
-#define DEBUG_ESP_PORT Serial
+
+//#define DEBUG_ESP_PORT Serial
 
 #ifndef P
 #ifdef DEBUG_ESP_PORT
