@@ -177,13 +177,13 @@ public:
                     Ppin(this->_pin, "now detach\n");
                     this->_s.detach();
                     this->_finish = false;
-                    this->_wait = now + this->_wait_detach;
                     return true;
                 }
                 Ppin(this->_pin, "now move dest=%d, cur=%d, step=%d\n", this->_dest, this->_cur, this->_step);
                 if (this->_inter == 0) {
                     this->moveto(this->_dest, now);
                     // end of move for this servo
+                    this->_wait = now + this->_wait_detach;
                     this->_finish = true;
                 } else {
                     int prev_pos = this->_cur;
@@ -192,6 +192,7 @@ public:
                     if ((this->_dest == this->_cur) // dest reached
                        or (sign(this->_dest - prev_pos) != sign(this->_dest - this->_cur))){ // dest overtaken
                         // end of move for this servo
+                        this->_wait = now + this->_wait_detach;
                         this->_finish = true;
                     }
                 }
@@ -390,8 +391,8 @@ void mvt_triste(unsigned long now) /* Ok for pos, check time */
     mvt_table[2].next =  &mvt_table[3];
 
     mvt_table[3].reset();
-    mvt_table[3].wait_detach = 500;
     mvt_table[3].wait = RESET_WAIT;
+    mvt_table[3].wait_detach = DETACH_WAIT;
 
     ears.define_move(&mvt_table[0], now);
 }
@@ -437,7 +438,8 @@ void mvt_penaud(unsigned long now)
     mvt_table[3].next =  &mvt_table[4];
 
     mvt_table[4].reset();
-    mvt_table[4].wait = 5000 ;
+    mvt_table[4].wait = RESET_WAIT ;
+    mvt_table[4].wait_detach = DETACH_WAIT;
 
     ears.define_move(&mvt_table[0], now);
 
@@ -484,6 +486,7 @@ void mvt_gauche(unsigned long now)
 
     mvt_table[5].reset();
     mvt_table[5].wait = RESET_WAIT;
+    mvt_table[5].wait_detach = DETACH_WAIT;
 
     ears.define_move(&mvt_table[0], now);
 }
@@ -529,6 +532,7 @@ void mvt_droit(unsigned long now)
 
     mvt_table[5].reset();
     mvt_table[5].wait = RESET_WAIT;
+    mvt_table[5].wait_detach = DETACH_WAIT;
 
     ears.define_move(&mvt_table[0], now);
 }
@@ -591,6 +595,7 @@ void mvt_aguet(unsigned long now)
 
     mvt_table[5].reset();
     mvt_table[5].wait = RESET_WAIT;
+    mvt_table[5].wait_detach = DETACH_WAIT;
 
     ears.define_move(&mvt_table[0], now);
 
@@ -615,6 +620,7 @@ void mvt_content(unsigned long now)
 
     mvt_table[2].reset();
     mvt_table[2].wait = RESET_WAIT;
+    mvt_table[2].wait_detach = DETACH_WAIT;
     ears.define_move(&mvt_table[0], now);
 }
 
@@ -656,6 +662,7 @@ void mvt_ecoute(unsigned long now)
 
     mvt_table[4].reset();
     mvt_table[4].wait = 300;
+    mvt_table[4].wait_detach = DETACH_WAIT;
     ears.define_move(&mvt_table[0], now);
 }
 
@@ -681,7 +688,8 @@ void mvt_surprise(unsigned long now)
     mvt_table[1].next =  &mvt_table[2];
 
     mvt_table[2].reset();
-    mvt_table[2].wait = 5000;
+    mvt_table[2].wait = RESET_WAIT;
+    mvt_table[2].wait_detach = DETACH_WAIT;
     ears.define_move(&mvt_table[0], now);
 }
 
@@ -716,6 +724,7 @@ void mvt_baisse(unsigned long now)
 
     mvt_table[3].reset();
     mvt_table[3].wait = RESET_WAIT;
+    mvt_table[3].wait_detach = DETACH_WAIT;
     ears.define_move(&mvt_table[0], now);
 }
 
@@ -753,6 +762,7 @@ void mvt_tourne(unsigned long now)
 
     mvt_table[3].reset();
     mvt_table[3].wait = 10;
+    mvt_table[3].wait_detach = DETACH_WAIT;
     ears.define_move(&mvt_table[0], now);
 
 
@@ -763,6 +773,7 @@ void mvt_reset(unsigned long now)
 {
     mvt_table[0].reset();
     mvt_table[0].wait_detach = 500;
+    mvt_table[0].wait_detach = DETACH_WAIT;
     ears.define_move(&mvt_table[0], now);
 }
 
@@ -787,6 +798,7 @@ void mvt_manual(unsigned long now, int coord[4])
     mvt_table[0].next =  NULL ;
 
 
+    mvt_table[0].wait_detach = DETACH_WAIT;
     ears.define_move(&mvt_table[0], now);
 
 
