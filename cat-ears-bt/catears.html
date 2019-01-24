@@ -151,12 +151,12 @@ var movement_list = {
     "triste" : "Triste",
     "penaud" : "Penaud",
     "gauche" : "Oreille Gauche",
-    "droite" : "Oreille Droite",
+    "droit" : "Oreille Droite",
     "aguet" : "Aux aguets",
     "content" : "Content",
     "ecoute" : "écoute",
     "surprise" : "Surprise",
-    "baissé" : "Baissées",
+    "baisse" : "Baissées",
     "tourne" : "Tournées",
     "reset" : "Reset Origine"
 }
@@ -168,6 +168,19 @@ function send_info(e)
     let buffer = encoder.encode(mvt);
     catEars.writeInfo(buffer);
 }
+function send_data(form)
+{
+    lazi = form.lazi.value;
+    lalt = form.lalt.value;
+    razi = form.razi.value;
+    ralt = form.ralt.value;
+    mvt = 'manual:' + lazi +':' + lalt + ':' + razi +':' +ralt;
+    let encoder = new TextEncoder();
+    let buffer = encoder.encode(mvt);
+    catEars.writeInfo(buffer);
+    return false;
+}
+
 
 </script>
 
@@ -179,7 +192,7 @@ function send_info(e)
     <div class="span12">
       <div class="main ios-dl">
         <div class="definition-group" id=movelist>
-        </div>
+	</div>
       </div>
     </div>
   </div>
@@ -196,6 +209,8 @@ buttonConnect.addEventListener('click', event => {
             elem = appendHtml(movelist_div, '<dt><a href="#'+ key +'" class="move">'+ movement_list[key] +'<\/a><\/dt>', "dl", {"class" : "dl-horizontal"});
             elem.addEventListener('click', event => {send_info(event);}, false);
         }
+	appendHtml(movelist_div, '<input type="text" id="form-lazi" name="lazi" maxlength="4" required size="4" value="0"><input type="text" id="form-lalt" name="lalt" maxlength="4" required size="4" value="0"> <input type="text" id="form-razi" name="razi" maxlength="4" required size="4" value="0"><input type="text" id="form-ralt" name="ralt" maxlength="4" required size="4" value="0"> <button type="submit" onClick="send_data(this.form); return false" >Send</button>'
+			, "form", {"class" : "dl-horizontal", "action" : "#", "onsubmit" : "return false"});
     })
     .catch(error => { console.log(error) });
 });
