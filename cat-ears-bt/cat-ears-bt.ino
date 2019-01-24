@@ -28,6 +28,8 @@ int maxUs = 2400;
 #define       INIT_LEFT_AZI              100
 #define       INIT_RIGHT_AZI             100
 
+
+#define alwaysP(...) Serial.printf( __VA_ARGS__ )
 #define DEBUG_ESP_PORT Serial
 
 #ifndef P
@@ -800,6 +802,7 @@ void loop()
     std::string value = pCharacteristic->getValue();
     incomming_msg = false;
 
+    alwaysP("manage %s\n", value.c_str());
     if (value == "triste") {
         mvt_triste(now);
     } else if (value == "penaud") {
