@@ -55,6 +55,33 @@ html, body {
   text-align: center;
   font-size: 250%;
 }
+
+#manual-move {
+  background: gold;
+  columns: 2 auto;
+  background: gold;
+  text-align: center;
+  display: inline-block;
+}
+.square {
+  width: 90vmin;
+  height: 90vmin;
+  background: grey;
+  text-align: center;
+}
+
+/*div.square2 {
+  width: 100%;
+  background: grey;
+}
+div.square2:after {
+    content: "";
+    display: block;
+    padding-bottom : 100%;
+    margin : 2%;
+    background: white;
+}
+*/
 a:hover, a:visited, a:link, a:active
 {
   text-decoration: none;
@@ -160,13 +187,17 @@ var movement_list = {
     "tourne" : "Tournées",
     "reset" : "Reset Origine"
 }
+function send_str(s)
+{
+    let encoder = new TextEncoder();
+    let buffer = encoder.encode(mvt);
+    catEars.writeInfo(buffer);
+}
 
 function send_info(e)
 {
     mvt = e.target.attributes["href"].nodeValue.substring(1);
-    let encoder = new TextEncoder();
-    let buffer = encoder.encode(mvt);
-    catEars.writeInfo(buffer);
+    send_str(mvt);
 }
 function send_data(form)
 {
@@ -174,10 +205,8 @@ function send_data(form)
     lalt = form.lalt.value;
     razi = form.razi.value;
     ralt = form.ralt.value;
-    mvt = 'manual:' + lazi +':' + lalt + ':' + razi +':' +ralt;
-    let encoder = new TextEncoder();
-    let buffer = encoder.encode(mvt);
-    catEars.writeInfo(buffer);
+    mvt = "manual:" + lazi + ":" + lalt + ":" + razi + ":" + ralt;
+    send_str(mvt);
     return false;
 }
 
@@ -192,12 +221,65 @@ function send_data(form)
     <div class="span12">
       <div class="main ios-dl">
         <div class="definition-group" id=movelist>
-	</div>
+        </div>
+        <div id="manual-move">
+           <canvas width="200" height="200" class="square touch-zone" id="left-ear">
+           </canvas>
+           <canvas width="200" height="200" class="square touch-zone" id="right-ear" >
+           </canvas>
+        </div>
       </div>
     </div>
   </div>
 </div>
 <script>
+var manual_pos = {"left" : { "azi" : 0, "alt" : 0},
+                  "right" : { "azi" : 0, "alt" : 0} };
+var prev_pos =  {"left" : { "azi" : 0, "alt" : 0},
+                  "right" : { "azi" : 0, "alt" : 0} };
+
+function definepoint(pos, azi, alt, set)
+{
+    var canvas = document.getElementById(pos+'-ear');
+    var ctx = canvas.getContext('2d');
+
+    x = (azi + 100)
+    y = (alt + 100)
+
+    ctx.fillStyle = 'red';
+    /* delete previous point */
+    if (set)
+        ctx.fillRect(x, y, 5, 5);
+    else
+        ctx.clearRect(x, y, 5, 5);
+
+}
+
+var pos_inter_id = setInterval( _ => {
+    if ((manual_pos.right.azi != prev_pos.right.azi) ||
+        (manual_pos.right.alt != prev_pos.right.alt) ||
+        (manual_pos.left.azi != prev_pos.left.azi) ||
+        (manual_pos.left.alt != prev_pos.left.alt)) {
+
+            definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
+            definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
+
+            prev_pos.right.azi = manual_pos.right.azi;
+            prev_pos.right.alt = manual_pos.right.alt;
+            prev_pos.left.azi = manual_pos.left.azi;
+            prev_pos.left.alt = manual_pos.left.alt;
+
+            var mvt = "manual:" + prev_pos.left.azi + ":"
+                                + prev_pos.left.alt + ":"
+                                + prev_pos.right.azi + ":"
+                                + prev_pos.right.alt ;
+            //send_str(mvt);
+            console.log(mvt);
+            definepoint("right", manual_pos.right.azi, manual_pos.right.alt, true);
+            definepoint("left", manual_pos.left.azi, manual_pos.left.alt, true);
+        }
+}, 1*1000);
+
 buttonConnect = document.getElementById('buttonConnect');
 buttonConnect.addEventListener('click', event => {
     catEars.request()
@@ -214,6 +296,53 @@ buttonConnect.addEventListener('click', event => {
     })
     .catch(error => { console.log(error) });
 });
+
+function manualmousemove(event) {
+//    console.log(event.target)
+//    console.log(event.target.id)
+    offLeft = event.target.offsetLeft
+    offHeight = event.target.offsetHeight
+    offTop = event.target.offsetTop
+    offWidth = event.target.offsetWidth
+ 
+//    console.log(-100+Math.round(200*(event.pageX - offLeft)/(offWidth)));
+//    console.log(-100+Math.round(200*(event.pageY - offTop)/(offHeight)));
+//    console.log(event.target);
+    if (event.target.id.includes("right")) {
+        manual_pos.right.azi = -100 + Math.round(200*(event.pageX - offLeft)/(offWidth))
+        manual_pos.right.alt = -100 + Math.round(200*(event.pageY - offTop)/(offHeight))
+    } else {
+        manual_pos.left.azi = -100 + Math.round(200*(event.pageX - offLeft)/(offWidth))
+        manual_pos.left.alt = -100 + Math.round(200*(event.pageY - offTop)/(offHeight))
+    }
+}
+function manualtouchmove(event) {
+//    console.log(event.target)
+//    console.log(event.target.id)
+    offLeft = event.target.offsetLeft
+    offHeight = event.target.offsetHeight
+    offTop = event.target.offsetTop
+    offWidth = event.target.offsetWidth
+ 
+//    console.log(-100+Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth)));
+//    console.log(-100+Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight)));
+    console.log(event.target.id);
+    if (event.targetTouches[0].id.includes("right")) {
+        manual_pos.right.azi = -100 + Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth))
+        manual_pos.right.alt = -100 + Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight))
+    } else {
+        manual_pos.left.azi = -100 + Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth))
+        manual_pos.left.alt = -100 + Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight))
+    }
+
+}
+
+touchZones = document.getElementsByClassName('touch-zone');
+console.log(touchZones)
+for (var i=0; i<touchZones.length; i++) {
+    touchZones[i].addEventListener('mousemove', manualmousemove, false);
+    touchZones[i].addEventListener('touchmove', manualtouchmove, false);
+}
 </script>
 
 </body>
