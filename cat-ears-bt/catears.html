@@ -57,7 +57,6 @@ html, body {
 }
 
 #manual-move {
-  background: gold;
   columns: 2 auto;
   background: gold;
   text-align: center;
@@ -68,6 +67,7 @@ html, body {
   height: 90vmin;
   background: grey;
   text-align: center;
+  float: right;
 }
 
 /*div.square2 {
@@ -304,7 +304,7 @@ function manualmousemove(event) {
     offHeight = event.target.offsetHeight
     offTop = event.target.offsetTop
     offWidth = event.target.offsetWidth
- 
+
 //    console.log(-100+Math.round(200*(event.pageX - offLeft)/(offWidth)));
 //    console.log(-100+Math.round(200*(event.pageY - offTop)/(offHeight)));
 //    console.log(event.target);
@@ -323,11 +323,10 @@ function manualtouchmove(event) {
     offHeight = event.target.offsetHeight
     offTop = event.target.offsetTop
     offWidth = event.target.offsetWidth
- 
+
 //    console.log(-100+Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth)));
 //    console.log(-100+Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight)));
-    console.log(event.target.id);
-    if (event.targetTouches[0].id.includes("right")) {
+    if (event.targetTouches[0].target.id.includes("right")) {
         manual_pos.right.azi = -100 + Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth))
         manual_pos.right.alt = -100 + Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight))
     } else {
