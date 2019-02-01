@@ -69,7 +69,9 @@ html, body {
   text-align: center;
   float: right;
 }
-
+.touch-zone {
+	touch-action = none;
+}
 /*div.square2 {
   width: 100%;
   background: grey;
@@ -190,13 +192,13 @@ var movement_list = {
 function send_str(s)
 {
     let encoder = new TextEncoder();
-    let buffer = encoder.encode(mvt);
+    let buffer = encoder.encode(s);
     catEars.writeInfo(buffer);
 }
 
 function send_info(e)
 {
-    mvt = e.target.attributes["href"].nodeValue.substring(1);
+    let mvt = e.target.attributes["href"].nodeValue.substring(1);
     send_str(mvt);
 }
 function send_data(form)
@@ -205,7 +207,7 @@ function send_data(form)
     lalt = form.lalt.value;
     razi = form.razi.value;
     ralt = form.ralt.value;
-    mvt = "manual:" + lazi + ":" + lalt + ":" + razi + ":" + ralt;
+    let mvt = "manual:" + lazi + ":" + lalt + ":" + razi + ":" + ralt;
     send_str(mvt);
     return false;
 }
@@ -273,7 +275,7 @@ var pos_inter_id = setInterval( _ => {
                                 + prev_pos.left.alt + ":"
                                 + prev_pos.right.azi + ":"
                                 + prev_pos.right.alt ;
-            //send_str(mvt);
+            send_str(mvt);
             console.log(mvt);
             definepoint("right", manual_pos.right.azi, manual_pos.right.alt, true);
             definepoint("left", manual_pos.left.azi, manual_pos.left.alt, true);
@@ -300,6 +302,7 @@ buttonConnect.addEventListener('click', event => {
 function manualmousemove(event) {
 //    console.log(event.target)
 //    console.log(event.target.id)
+    event.preventDefault();
     offLeft = event.target.offsetLeft
     offHeight = event.target.offsetHeight
     offTop = event.target.offsetTop
@@ -315,10 +318,12 @@ function manualmousemove(event) {
         manual_pos.left.azi = -100 + Math.round(200*(event.pageX - offLeft)/(offWidth))
         manual_pos.left.alt = -100 + Math.round(200*(event.pageY - offTop)/(offHeight))
     }
+    return false;
 }
 function manualtouchmove(event) {
 //    console.log(event.target)
 //    console.log(event.target.id)
+    event.preventDefault();
     offLeft = event.target.offsetLeft
     offHeight = event.target.offsetHeight
     offTop = event.target.offsetTop
@@ -333,7 +338,7 @@ function manualtouchmove(event) {
         manual_pos.left.azi = -100 + Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth))
         manual_pos.left.alt = -100 + Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight))
     }
-
+    return false;
 }
 
 touchZones = document.getElementsByClassName('touch-zone');
