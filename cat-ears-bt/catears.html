@@ -193,7 +193,7 @@ function send_str(s)
 {
     let encoder = new TextEncoder();
     let buffer = encoder.encode(s);
-    catEars.writeInfo(buffer);
+    catEars || catEars.writeInfo(buffer);
 }
 
 function send_info(e)
@@ -201,18 +201,6 @@ function send_info(e)
     let mvt = e.target.attributes["href"].nodeValue.substring(1);
     send_str(mvt);
 }
-function send_data(form)
-{
-    lazi = form.lazi.value;
-    lalt = form.lalt.value;
-    razi = form.razi.value;
-    ralt = form.ralt.value;
-    let mvt = "manual:" + lazi + ":" + lalt + ":" + razi + ":" + ralt;
-    send_str(mvt);
-    return false;
-}
-
-
 </script>
 
 <div id="main" class="container-fluid">
@@ -224,6 +212,8 @@ function send_data(form)
       <div class="main ios-dl">
         <div class="definition-group" id=movelist>
         </div>
+        <input type="checkbox" id="select-absolute" name="select-absolute" checked>
+        <label for=select-absolute"">Absolute move</label>
         <div id="manual-move">
            <canvas width="200" height="200" class="square touch-zone" id="left-ear">
            </canvas>
@@ -235,10 +225,20 @@ function send_data(form)
   </div>
 </div>
 <script>
-var manual_pos = {"left" : { "azi" : 0, "alt" : 0},
+
+var virtual_pos;
+var real_pos;
+
+function init_position() {
+virtual_pos = {"left" : { "azi" : 0, "alt" : 0},
                   "right" : { "azi" : 0, "alt" : 0} };
-var prev_pos =  {"left" : { "azi" : 0, "alt" : 0},
+real_pos =  {"left" : { "azi" : 0, "alt" : 0},
                   "right" : { "azi" : 0, "alt" : 0} };
+prev_pos =  {"left" : { "azi" : 0, "alt" : 0},
+                  "right" : { "azi" : 0, "alt" : 0} };
+}
+
+init_position();
 
 function definepoint(pos, azi, alt, set)
 {
@@ -251,35 +251,70 @@ function definepoint(pos, azi, alt, set)
     ctx.fillStyle = 'red';
     /* delete previous point */
     if (set)
-        ctx.fillRect(x, y, 5, 5);
+        ctx.fillRect(x-2, y-2, 5, 5);
     else
-        ctx.clearRect(x, y, 5, 5);
+        ctx.clearRect(x-2, y-2, 5, 5);
 
 }
-
+function is_position_absolute() {
+    return document.querySelector('#select-absolute').checked ;
+}
 var pos_inter_id = setInterval( _ => {
-    if ((manual_pos.right.azi != prev_pos.right.azi) ||
-        (manual_pos.right.alt != prev_pos.right.alt) ||
-        (manual_pos.left.azi != prev_pos.left.azi) ||
-        (manual_pos.left.alt != prev_pos.left.alt)) {
+    let accel = 5;
 
-            definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
-            definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
+    if (is_position_absolute()) {
+        real_pos.right.azi = virtual_pos.right.azi;
+        real_pos.right.alt = virtual_pos.right.alt;
+        real_pos.left.azi = virtual_pos.left.azi;
+        real_pos.left.alt = virtual_pos.left.alt;
+    } else {
+        real_pos.right.azi += Math.round(virtual_pos.right.azi/accel);
+        if (real_pos.right.azi > 100)
+            real_pos.right.azi = 100;
+        if (real_pos.right.azi < -100)
+            real_pos.right.azi = -100;
+        real_pos.right.alt += Math.round(virtual_pos.right.alt/accel);
+        if (real_pos.right.alt > 100)
+            real_pos.right.alt = 100;
+        if (real_pos.right.alt < -100)
+            real_pos.right.alt = -100;
+        real_pos.left.azi += Math.round(virtual_pos.left.azi/accel);
+        if (real_pos.left.azi > 100)
+            real_pos.left.azi = 100;
+        if (real_pos.left.azi < -100)
+            real_pos.left.azi = -100;
+        real_pos.left.alt += Math.round(virtual_pos.left.alt/accel);
+        if (real_pos.left.alt > 100)
+            real_pos.left.alt = 100;
+        if (real_pos.left.alt < -100)
+            real_pos.left.alt = -100;
 
-            prev_pos.right.azi = manual_pos.right.azi;
-            prev_pos.right.alt = manual_pos.right.alt;
-            prev_pos.left.azi = manual_pos.left.azi;
-            prev_pos.left.alt = manual_pos.left.alt;
+    }
 
-            var mvt = "manual:" + prev_pos.left.azi + ":"
-                                + prev_pos.left.alt + ":"
-                                + prev_pos.right.azi + ":"
-                                + prev_pos.right.alt ;
-            send_str(mvt);
-            console.log(mvt);
-            definepoint("right", manual_pos.right.azi, manual_pos.right.alt, true);
-            definepoint("left", manual_pos.left.azi, manual_pos.left.alt, true);
-        }
+    if ((prev_pos.right.azi != real_pos.right.azi) ||
+        (prev_pos.right.alt != real_pos.right.alt) ||
+        (prev_pos.left.azi != real_pos.left.azi) ||
+        (prev_pos.left.alt != real_pos.left.alt)) {
+
+        definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
+        definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
+
+        prev_pos.right.azi = real_pos.right.azi;
+        prev_pos.right.alt = real_pos.right.alt;
+        prev_pos.left.azi = real_pos.left.azi;
+        prev_pos.left.alt = real_pos.left.alt;
+
+        var mvt = "manual:" + real_pos.left.azi + ":"
+                            + real_pos.left.alt + ":"
+                            + real_pos.right.azi + ":"
+                            + real_pos.right.alt ;
+        send_str(mvt);
+        console.log(mvt);
+
+        definepoint("right", real_pos.right.azi, real_pos.right.alt, true);
+        definepoint("left", real_pos.left.azi, real_pos.left.alt, true);
+
+    }
 }, 1*1000);
 
 buttonConnect = document.getElementById('buttonConnect');
@@ -291,52 +326,63 @@ buttonConnect.addEventListener('click', event => {
         var movelist_div = document.querySelector("#movelist");
         for(var key in movement_list) {
             elem = appendHtml(movelist_div, '<dt><a href="#'+ key +'" class="move">'+ movement_list[key] +'<\/a><\/dt>', "dl", {"class" : "dl-horizontal"});
-            elem.addEventListener('click', event => {send_info(event);}, false);
+            elem.addEventListener('click', event => {init_position(); send_info(event);}, false);
         }
-	appendHtml(movelist_div, '<input type="text" id="form-lazi" name="lazi" maxlength="4" required size="4" value="0"><input type="text" id="form-lalt" name="lalt" maxlength="4" required size="4" value="0"> <input type="text" id="form-razi" name="razi" maxlength="4" required size="4" value="0"><input type="text" id="form-ralt" name="ralt" maxlength="4" required size="4" value="0"> <button type="submit" onClick="send_data(this.form); return false" >Send</button>'
-			, "form", {"class" : "dl-horizontal", "action" : "#", "onsubmit" : "return false"});
     })
     .catch(error => { console.log(error) });
 });
+function manualmouseout(event) {
+    event.preventDefault();
+    if (event.target.id.includes("right")) {
+        virtual_pos.right.azi = 0;
+        virtual_pos.right.alt = 0;
+    } else {
+        virtual_pos.left.azi = 0;
+        virtual_pos.left.alt = 0;
+    }
+    return false;
+}
 
 function manualmousemove(event) {
-//    console.log(event.target)
-//    console.log(event.target.id)
     event.preventDefault();
-    offLeft = event.target.offsetLeft
-    offHeight = event.target.offsetHeight
-    offTop = event.target.offsetTop
-    offWidth = event.target.offsetWidth
+    offLeft = event.target.offsetLeft;
+    offHeight = event.target.offsetHeight;
+    offTop = event.target.offsetTop;
+    offWidth = event.target.offsetWidth;
 
-//    console.log(-100+Math.round(200*(event.pageX - offLeft)/(offWidth)));
-//    console.log(-100+Math.round(200*(event.pageY - offTop)/(offHeight)));
-//    console.log(event.target);
     if (event.target.id.includes("right")) {
-        manual_pos.right.azi = -100 + Math.round(200*(event.pageX - offLeft)/(offWidth))
-        manual_pos.right.alt = -100 + Math.round(200*(event.pageY - offTop)/(offHeight))
+        virtual_pos.right.azi = -100 + Math.round(200*(event.pageX - offLeft)/(offWidth));
+        virtual_pos.right.alt = -100 + Math.round(200*(event.pageY - offTop)/(offHeight));
     } else {
-        manual_pos.left.azi = -100 + Math.round(200*(event.pageX - offLeft)/(offWidth))
-        manual_pos.left.alt = -100 + Math.round(200*(event.pageY - offTop)/(offHeight))
+        virtual_pos.left.azi = -100 + Math.round(200*(event.pageX - offLeft)/(offWidth));
+        virtual_pos.left.alt = -100 + Math.round(200*(event.pageY - offTop)/(offHeight));
+    }
+    return false;
+}
+function manualtouchend(event) {
+    event.preventDefault();
+    if (event.targetTouches[0].target.id.includes("right")) {
+        virtual_pos.right.azi = 0;
+        virtual_pos.right.alt = 0;
+    } else {
+        virtual_pos.left.azi = 0;
+        virtual_pos.left.alt = 0;
     }
     return false;
 }
 function manualtouchmove(event) {
-//    console.log(event.target)
-//    console.log(event.target.id)
     event.preventDefault();
-    offLeft = event.target.offsetLeft
-    offHeight = event.target.offsetHeight
-    offTop = event.target.offsetTop
-    offWidth = event.target.offsetWidth
+    offLeft = event.target.offsetLeft;
+    offHeight = event.target.offsetHeight;
+    offTop = event.target.offsetTop;
+    offWidth = event.target.offsetWidth;
 
-//    console.log(-100+Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth)));
-//    console.log(-100+Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight)));
     if (event.targetTouches[0].target.id.includes("right")) {
-        manual_pos.right.azi = -100 + Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth))
-        manual_pos.right.alt = -100 + Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight))
+        virtual_pos.right.azi = -100 + Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth));
+        virtual_pos.right.alt = -100 + Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight));
     } else {
-        manual_pos.left.azi = -100 + Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth))
-        manual_pos.left.alt = -100 + Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight))
+        virtual_pos.left.azi = -100 + Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth));
+        virtual_pos.left.alt = -100 + Math.round(200*(event.targetTouches[0].pageY - offTop)/(offHeight));
     }
     return false;
 }
@@ -345,7 +391,9 @@ touchZones = document.getElementsByClassName('touch-zone');
 console.log(touchZones)
 for (var i=0; i<touchZones.length; i++) {
     touchZones[i].addEventListener('mousemove', manualmousemove, false);
+    touchZones[i].addEventListener('mouseout', manualmouseout, false);
     touchZones[i].addEventListener('touchmove', manualtouchmove, false);
+    touchZones[i].addEventListener('touchend', manualtouchend, false);
 }
 </script>
 
