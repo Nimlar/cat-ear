@@ -189,66 +189,6 @@ function is_position_relative() {
 function is_position_accelerometer() {
     return document.querySelector('#accelerometer').checked ;
 }
-var pos_inter_id = setInterval( _ => {
-    let accel = 5;
-
-    if (is_position_absolute()) {
-        real_pos.right.azi = virtual_pos.right.azi;
-        real_pos.right.alt = virtual_pos.right.alt;
-        real_pos.left.azi = virtual_pos.left.azi;
-        real_pos.left.alt = virtual_pos.left.alt;
-    } else if (is_position_relative()){
-        real_pos.right.azi += Math.round(virtual_pos.right.azi/accel);
-        if (real_pos.right.azi > 100)
-            real_pos.right.azi = 100;
-        if (real_pos.right.azi < -100)
-            real_pos.right.azi = -100;
-        real_pos.right.alt += Math.round(virtual_pos.right.alt/accel);
-        if (real_pos.right.alt > 100)
-            real_pos.right.alt = 100;
-        if (real_pos.right.alt < -100)
-            real_pos.right.alt = -100;
-        real_pos.left.azi += Math.round(virtual_pos.left.azi/accel);
-        if (real_pos.left.azi > 100)
-            real_pos.left.azi = 100;
-        if (real_pos.left.azi < -100)
-            real_pos.left.azi = -100;
-        real_pos.left.alt += Math.round(virtual_pos.left.alt/accel);
-        if (real_pos.left.alt > 100)
-            real_pos.left.alt = 100;
-        if (real_pos.left.alt < -100)
-            real_pos.left.alt = -100;
-    } else {
-        /* Nothing */
-    }
-
-
-    if ((prev_pos.right.azi != real_pos.right.azi) ||
-        (prev_pos.right.alt != real_pos.right.alt) ||
-        (prev_pos.left.azi != real_pos.left.azi) ||
-        (prev_pos.left.alt != real_pos.left.alt)) {
-
-        definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
-        definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
-
-        prev_pos.right.azi = real_pos.right.azi;
-        prev_pos.right.alt = real_pos.right.alt;
-        prev_pos.left.azi = real_pos.left.azi;
-        prev_pos.left.alt = real_pos.left.alt;
-
-        let mvt = "manual:" + real_pos.left.azi + ":"
-                            + real_pos.left.alt + ":"
-                            + real_pos.right.azi + ":"
-                            + real_pos.right.alt ;
-        send_str(mvt);
-        //console.log(mvt);
-
-        definepoint("right", real_pos.right.azi, real_pos.right.alt, true);
-        definepoint("left", real_pos.left.azi, real_pos.left.alt, true);
-
-    }
-}, 1*1000);
-
 var buttonConnect = document.getElementById('buttonConnect');
 buttonConnect.addEventListener('click', event => {
     catEars.request()
@@ -323,26 +263,174 @@ function inputModeChange(event) {
     console.log(event.target.value);
 }
 
-let touchZones = document.getElementsByClassName('touch-zone');
-for (var i=0; i<touchZones.length; i++) {
-    touchZones[i].addEventListener('mousemove', manualmousemove, false);
-    touchZones[i].addEventListener('mouseout', manualmouseout, false);
-    touchZones[i].addEventListener('touchmove', manualtouchmove, false);
-    touchZones[i].addEventListener('touchend', manualtouchend, false);
+
+function initInteractive() {
+    let touchZones = document.getElementsByClassName('touch-zone');
+    for (var i=0; i<touchZones.length; i++) {
+        touchZones[i].addEventListener('mousemove', manualmousemove, false);
+        touchZones[i].addEventListener('mouseout', manualmouseout, false);
+        touchZones[i].addEventListener('touchmove', manualtouchmove, false);
+        touchZones[i].addEventListener('touchend', manualtouchend, false);
+    }
+    /* better
+    touchZones.forEach( (elem) => {
+        elem.addEventListener('mousemove', manualmousemove, false);
+        elem.addEventListener('mouseout', manualmouseout, false);
+        elem.addEventListener('touchmove', manualtouchmove, false);
+        elem.addEventListener('touchend', manualtouchend, false);
+
+     };*/
+
+
+    let modeSelectors = document.querySelectorAll("input.mode");
+    modeSelectors.forEach( function(elem){
+        elem.addEventListener('change', inputModeChange);
+    });
+
+    let pos_inter_id = setInterval( _ => {
+        let accel = 5;
+
+        if (is_position_absolute()) {
+            real_pos.right.azi = virtual_pos.right.azi;
+            real_pos.right.alt = virtual_pos.right.alt;
+            real_pos.left.azi = virtual_pos.left.azi;
+            real_pos.left.alt = virtual_pos.left.alt;
+        } else if (is_position_relative()){
+            real_pos.right.azi += Math.round(virtual_pos.right.azi/accel);
+            if (real_pos.right.azi > 100)
+                real_pos.right.azi = 100;
+            if (real_pos.right.azi < -100)
+                real_pos.right.azi = -100;
+            real_pos.right.alt += Math.round(virtual_pos.right.alt/accel);
+            if (real_pos.right.alt > 100)
+                real_pos.right.alt = 100;
+            if (real_pos.right.alt < -100)
+                real_pos.right.alt = -100;
+            real_pos.left.azi += Math.round(virtual_pos.left.azi/accel);
+            if (real_pos.left.azi > 100)
+                real_pos.left.azi = 100;
+            if (real_pos.left.azi < -100)
+                real_pos.left.azi = -100;
+            real_pos.left.alt += Math.round(virtual_pos.left.alt/accel);
+            if (real_pos.left.alt > 100)
+                real_pos.left.alt = 100;
+            if (real_pos.left.alt < -100)
+                real_pos.left.alt = -100;
+        } else {
+            /* Nothing */
+        }
+
+
+        if ((prev_pos.right.azi != real_pos.right.azi) ||
+            (prev_pos.right.alt != real_pos.right.alt) ||
+            (prev_pos.left.azi != real_pos.left.azi) ||
+            (prev_pos.left.alt != real_pos.left.alt)) {
+
+            definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
+            definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
+
+            prev_pos.right.azi = real_pos.right.azi;
+            prev_pos.right.alt = real_pos.right.alt;
+            prev_pos.left.azi = real_pos.left.azi;
+            prev_pos.left.alt = real_pos.left.alt;
+
+            let mvt = "manual:" + real_pos.left.azi + ":"
+                                + real_pos.left.alt + ":"
+                                + real_pos.right.azi + ":"
+                                + real_pos.right.alt ;
+            send_str(mvt);
+            //console.log(mvt);
+
+            definepoint("right", real_pos.right.azi, real_pos.right.alt, true);
+            definepoint("left", real_pos.left.azi, real_pos.left.alt, true);
+
+        }
+    }, 1*1000);
+
 }
-/* better
-touchZones.forEach( (elem) => { 
-    elem.addEventListener('mousemove', manualmousemove, false);
-    elem.addEventListener('mouseout', manualmouseout, false);
-    elem.addEventListener('touchmove', manualtouchmove, false);
-    elem.addEventListener('touchend', manualtouchend, false);
 
- };*/
+initInteractive() {
+    let touchZones = document.getElementsByClassName('touch-zone');
+    for (var i=0; i<touchZones.length; i++) {
+        touchZones[i].addEventListener('mousemove', manualmousemove, false);
+        touchZones[i].addEventListener('mouseout', manualmouseout, false);
+        touchZones[i].addEventListener('touchmove', manualtouchmove, false);
+        touchZones[i].addEventListener('touchend', manualtouchend, false);
+    }
+    /* better
+    touchZones.forEach( (elem) => {
+        elem.addEventListener('mousemove', manualmousemove, false);
+        elem.addEventListener('mouseout', manualmouseout, false);
+        elem.addEventListener('touchmove', manualtouchmove, false);
+        elem.addEventListener('touchend', manualtouchend, false);
+
+     };*/
 
 
-let modeSelectors = document.querySelectorAll("input.mode");
-modeSelectors.forEach( function(elem){
-    elem.addEventListener('change', inputModeChange);
-});
+    let modeSelectors = document.querySelectorAll("input.mode");
+    modeSelectors.forEach( function(elem){
+        elem.addEventListener('change', inputModeChange);
+    });
+
+    var pos_inter_id = setInterval( _ => {
+        let accel = 5;
+
+        if (is_position_absolute()) {
+            real_pos.right.azi = virtual_pos.right.azi;
+            real_pos.right.alt = virtual_pos.right.alt;
+            real_pos.left.azi = virtual_pos.left.azi;
+            real_pos.left.alt = virtual_pos.left.alt;
+        } else if (is_position_relative()){
+            real_pos.right.azi += Math.round(virtual_pos.right.azi/accel);
+            if (real_pos.right.azi > 100)
+                real_pos.right.azi = 100;
+            if (real_pos.right.azi < -100)
+                real_pos.right.azi = -100;
+            real_pos.right.alt += Math.round(virtual_pos.right.alt/accel);
+            if (real_pos.right.alt > 100)
+                real_pos.right.alt = 100;
+            if (real_pos.right.alt < -100)
+                real_pos.right.alt = -100;
+            real_pos.left.azi += Math.round(virtual_pos.left.azi/accel);
+            if (real_pos.left.azi > 100)
+                real_pos.left.azi = 100;
+            if (real_pos.left.azi < -100)
+                real_pos.left.azi = -100;
+            real_pos.left.alt += Math.round(virtual_pos.left.alt/accel);
+            if (real_pos.left.alt > 100)
+                real_pos.left.alt = 100;
+            if (real_pos.left.alt < -100)
+                real_pos.left.alt = -100;
+        } else {
+            /* Nothing */
+        }
 
 
+        if ((prev_pos.right.azi != real_pos.right.azi) ||
+            (prev_pos.right.alt != real_pos.right.alt) ||
+            (prev_pos.left.azi != real_pos.left.azi) ||
+            (prev_pos.left.alt != real_pos.left.alt)) {
+
+            definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
+            definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
+
+            prev_pos.right.azi = real_pos.right.azi;
+            prev_pos.right.alt = real_pos.right.alt;
+            prev_pos.left.azi = real_pos.left.azi;
+            prev_pos.left.alt = real_pos.left.alt;
+
+            let mvt = "manual:" + real_pos.left.azi + ":"
+                                + real_pos.left.alt + ":"
+                                + real_pos.right.azi + ":"
+                                + real_pos.right.alt ;
+            send_str(mvt);
+            //console.log(mvt);
+
+            definepoint("right", real_pos.right.azi, real_pos.right.alt, true);
+            definepoint("left", real_pos.left.azi, real_pos.left.alt, true);
+
+        }
+    }, 1*1000);
+
+}
+initInteractive();
