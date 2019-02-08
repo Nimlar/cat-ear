@@ -117,7 +117,6 @@ class CatEars {
         };
         return navigator.bluetooth.requestDevice(options)
             .then(device => {
-                console.log(this);
                 this.device = device;
                 this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
             });
@@ -193,7 +192,7 @@ function send_str(s)
 {
     let encoder = new TextEncoder();
     let buffer = encoder.encode(s);
-    catEars || catEars.writeInfo(buffer);
+    catEars && catEars.writeInfo(buffer);
 }
 
 function send_info(e)
@@ -212,9 +211,14 @@ function send_info(e)
       <div class="main ios-dl">
         <div class="definition-group" id=movelist>
         </div>
-        <input type="checkbox" id="select-absolute" name="select-absolute" checked>
-        <label for=select-absolute"">Absolute move</label>
-        <div id="manual-move">
+        <input type="radio" id="absolute" name="mode" checked>
+        <label for="absolute">Absolute move</label>
+        <input type="radio" id="relative" name="mode" value="relative">
+        <label for="relative">Relative move</label>
+        <input type="radio" id="accelerometer" name="mode" value="accelerometer">
+        <label for="acceleromter">Accelerometer move</label>
+        <div id="debug"></div>
+	<div id="manual-move">
            <canvas width="200" height="200" class="square touch-zone" id="left-ear">
            </canvas>
            <canvas width="200" height="200" class="square touch-zone" id="right-ear" >
@@ -224,10 +228,64 @@ function send_info(e)
     </div>
   </div>
 </div>
-<script>
+<script type="module">
+
+import {
+        AbsoluteOrientationSensor,
+        RelativeOrientationSensor
+} from './motion-sensors.js';
+
+if (navigator.permissions) {
+        // https://w3c.github.io/orientation-sensor/#model
+        Promise.all([navigator.permissions.query({ name: "accelerometer" }),
+                        navigator.permissions.query({ name: "magnetometer" }),
+                        navigator.permissions.query({ name: "gyroscope" })])
+                .then(results => {
+                        if (results.every(result => result.state === "granted")) {
+                                initSensor();
+                        } else {
+                                console.log("Permission to use sensor was denied.");
+                        }
+                }).catch(err => {
+                        console.log("Integration with Permissions API is not enabled, still try to start app.");
+                        initSensor();
+                });
+} else {
+        console.log("No Permissions API, still try to start app.");
+        initSensor();
+}
+var sensor;
+function initSensor() {
+        const options = { frequency: 60 };
+        sensor = new RelativeOrientationSensor(options);
+        //sensor = new AbsoluteOrientationSensor(options);
+        sensor.onreading = () => { 
+                console.log(sensor.quaternion);
+
+                var debug_div = document.querySelector("#debug");
+                let vect = sensor.quaternion;
+                let demi_theta = Math.acos(vect[3]);
+                let x = vect[0] / Math.sin(demi_theta);
+                let y = vect[1] / Math.sin(demi_theta);
+                let z = vect[2] / Math.sin(demi_theta);
+                let mvt = "manual:" + y*100 + ":"
+                            + x*100 + ":"
+                            + y*100 + ":"
+                            + y*100 ;
+                send_str(mvt);
+
+                debug_div.innerHTML = "x=" + x + "<br>y=" + y + "<br>z=" + z + "<br>theta" + 2*demi_theta + "<br>"+  sensor.quaternion;
+                };
+        sensor.onerror = (event) => {
+                if (event.error.name == 'NotReadableError') {
+                        console.log("Sensor is not available.");
+                }
+        }
+}
 
 var virtual_pos;
 var real_pos;
+var prev_pos;
 
 function init_position() {
 virtual_pos = {"left" : { "azi" : 0, "alt" : 0},
@@ -242,11 +300,11 @@ init_position();
 
 function definepoint(pos, azi, alt, set)
 {
-    var canvas = document.getElementById(pos+'-ear');
-    var ctx = canvas.getContext('2d');
+    let canvas = document.getElementById(pos+'-ear');
+    let ctx = canvas.getContext('2d');
 
-    x = (azi + 100)
-    y = (alt + 100)
+    let x = (azi + 100)
+    let y = (alt + 100)
 
     ctx.fillStyle = 'red';
     /* delete previous point */
@@ -257,7 +315,13 @@ function definepoint(pos, azi, alt, set)
 
 }
 function is_position_absolute() {
-    return document.querySelector('#select-absolute').checked ;
+    return document.querySelector('#absolute').checked ;
+}
+function is_position_relative() {
+    return document.querySelector('#relative').checked ;
+}
+function is_position_accelerometer() {
+    return document.querySelector('#accelerometer').checked ;
 }
 var pos_inter_id = setInterval( _ => {
     let accel = 5;
@@ -267,7 +331,7 @@ var pos_inter_id = setInterval( _ => {
         real_pos.right.alt = virtual_pos.right.alt;
         real_pos.left.azi = virtual_pos.left.azi;
         real_pos.left.alt = virtual_pos.left.alt;
-    } else {
+    } else if (is_position_relative()){
         real_pos.right.azi += Math.round(virtual_pos.right.azi/accel);
         if (real_pos.right.azi > 100)
             real_pos.right.azi = 100;
@@ -288,8 +352,10 @@ var pos_inter_id = setInterval( _ => {
             real_pos.left.alt = 100;
         if (real_pos.left.alt < -100)
             real_pos.left.alt = -100;
-
+    } else {
+        /* Nothing */
     }
+
 
     if ((prev_pos.right.azi != real_pos.right.azi) ||
         (prev_pos.right.alt != real_pos.right.alt) ||
@@ -304,7 +370,7 @@ var pos_inter_id = setInterval( _ => {
         prev_pos.left.azi = real_pos.left.azi;
         prev_pos.left.alt = real_pos.left.alt;
 
-        var mvt = "manual:" + real_pos.left.azi + ":"
+        let mvt = "manual:" + real_pos.left.azi + ":"
                             + real_pos.left.alt + ":"
                             + real_pos.right.azi + ":"
                             + real_pos.right.alt ;
@@ -317,7 +383,7 @@ var pos_inter_id = setInterval( _ => {
     }
 }, 1*1000);
 
-buttonConnect = document.getElementById('buttonConnect');
+var buttonConnect = document.getElementById('buttonConnect');
 buttonConnect.addEventListener('click', event => {
     catEars.request()
     .then(_ => catEars.connect())
@@ -345,10 +411,10 @@ function manualmouseout(event) {
 
 function manualmousemove(event) {
     event.preventDefault();
-    offLeft = event.target.offsetLeft;
-    offHeight = event.target.offsetHeight;
-    offTop = event.target.offsetTop;
-    offWidth = event.target.offsetWidth;
+    let offLeft = event.target.offsetLeft;
+    let offHeight = event.target.offsetHeight;
+    let offTop = event.target.offsetTop;
+    let offWidth = event.target.offsetWidth;
 
     if (event.target.id.includes("right")) {
         virtual_pos.right.azi = -100 + Math.round(200*(event.pageX - offLeft)/(offWidth));
@@ -387,14 +453,17 @@ function manualtouchmove(event) {
     return false;
 }
 
-touchZones = document.getElementsByClassName('touch-zone');
-console.log(touchZones)
+var touchZones = document.getElementsByClassName('touch-zone');
 for (var i=0; i<touchZones.length; i++) {
     touchZones[i].addEventListener('mousemove', manualmousemove, false);
     touchZones[i].addEventListener('mouseout', manualmouseout, false);
     touchZones[i].addEventListener('touchmove', manualtouchmove, false);
     touchZones[i].addEventListener('touchend', manualtouchend, false);
 }
+var accell_selector= document.getElementById("accelerometer")
+accell_selector.addEventListener('change', (event) => {
+        console.log(event)
+        });
 </script>
 
 </body>
