@@ -66,12 +66,12 @@ class CatEars {
 var catEars = new CatEars();
 
 function appendHtml(el, str, to_create) {
-    var elem = document.createElement(to_create);
+    let elem = document.createElement(to_create);
     elem.innerHTML = str;
     return el.appendChild(elem);
 }
 
-var movement_list = {
+let movement_list = {
     "triste" : "Triste",
     "penaud" : "Penaud",
     "gauche" : "Oreille Gauche",
@@ -98,10 +98,10 @@ function send_info(e)
 }
 
 
-var sensor;
-var virtual_pos;
-var real_pos;
-var prev_pos;
+let sensor;
+let virtual_pos;
+let real_pos;
+let prev_pos;
 
 import {
         AbsoluteOrientationSensor,
@@ -132,7 +132,7 @@ function initSensor() {
         sensor = new RelativeOrientationSensor(options);
         //sensor = new AbsoluteOrientationSensor(options);
         sensor.onreading = () => { 
-                var debug_div = document.querySelector("#debug");
+                let debug_div = document.querySelector("#debug");
                 let vect = sensor.quaternion;
                 let q0 = vect[3];
                 let q1 = vect[0];
@@ -172,6 +172,7 @@ function initSensor() {
                                       " 100*sin(pitch)=" + Math.round(100*Math.sin(pitch)) +
                                       "<br>yaw=" + yaw +
                                       " 100*cos(yaw)=" + Math.round(100*Math.cos(yaw)) +
+                                      "<br> 100*sin(pitch + yaw)=" + Math.round(100*Math.sin(pitch + yaw)) +
                                       "<br>"+  sensor.quaternion;
                 };
         sensor.onerror = (event) => {
@@ -216,17 +217,18 @@ function is_position_relative() {
 function is_position_accelerometer() {
     return document.querySelector('#accelerometer').checked ;
 }
-var buttonConnect = document.getElementById('buttonConnect');
+let buttonConnect = document.getElementById('buttonConnect');
 buttonConnect.addEventListener('click', event => {
     catEars.request()
     .then(_ => catEars.connect())
     .then(_ => { buttonConnect.style.visibility = "hidden" ;} )
     .then(_ => {
-        var movelist_div = document.querySelector("#movelist");
-        for(var key in movement_list) {
+        let movelist_div = document.querySelector("#movelist");
+        for(let key in movement_list) {
             elem = appendHtml(movelist_div, '<dt><a href="#'+ key +'" class="move">'+ movement_list[key] +'<\/a><\/dt>', "dl", {"class" : "dl-horizontal"});
             elem.addEventListener('click', event => {initPosition(); send_info(event);}, false);
         }
+        initInteractive();
     })
     .catch(error => { console.log(error) });
 });
@@ -286,40 +288,11 @@ function manualtouchmove(event) {
     return false;
 }
 
-function inputModeChange(event) {
-    console.log(event.target.value);
-    if (event.target.value == "accelerometer") {
-        sensor.start();
-    } else {
-        sensor.stop();
-    }
-}
-
-
-function initInteractive() {
-    let touchZones = document.getElementsByClassName('touch-zone');
-    for (var i=0; i<touchZones.length; i++) {
-        touchZones[i].addEventListener('mousemove', manualmousemove, false);
-        touchZones[i].addEventListener('mouseout', manualmouseout, false);
-        touchZones[i].addEventListener('touchmove', manualtouchmove, false);
-        touchZones[i].addEventListener('touchend', manualtouchend, false);
-    }
-    /* better
-    touchZones.forEach( (elem) => {
-        elem.addEventListener('mousemove', manualmousemove, false);
-        elem.addEventListener('mouseout', manualmouseout, false);
-        elem.addEventListener('touchmove', manualtouchmove, false);
-        elem.addEventListener('touchend', manualtouchend, false);
-
-     };*/
-
-
-    let modeSelectors = document.querySelectorAll("input.mode");
-    modeSelectors.forEach( function(elem){
-        elem.addEventListener('change', inputModeChange);
-    });
-
-    let pos_inter_id = setInterval( _ => {
+let pos_inter_id;
+function startPadInteraction(position) {
+    /* may chnage the is_position_*() by
+     * position == * */
+    pos_inter_id = setInterval( _ => {
         let accel = 5;
 
         if (is_position_absolute()) {
@@ -378,8 +351,64 @@ function initInteractive() {
 
         }
     }, 1*1000);
+}
+
+function stopPadInteraction() {
+    clearInterval(pos_inter_id);
+    /* delete previous saved position */
+    definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
+    definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
+}
+function inputModeChange(event) {
+    console.log(event.target.value);
+    let preprogElem = document.getElementById('movelist');
+    let padElem = document.getElementById('manual-move');
+
+    if (event.target.value == "accelerometer") {
+        sensor.start();
+    } else {
+        sensor.stop();
+    }
+    if (event.target.value == "absolute") || (event.target.value == "relative") {
+        padElem.style.visibility = "visible" ;
+        startPadInteraction(event.target.value);
+    } else {
+        padElem.style.visibility = "collapse" ;
+        stopPadInteraction();
+    }
+    if (event.target.value == "preprog" ) {
+        /* maybe should use display = "none" */
+        preprogElem.style.visibility = "visible" ;
+    } else {
+        preprogElem.style.visibility = "collapse" ;
+    }
 
 }
 
+
+function initInteractive() {
+    let touchZones = document.getElementsByClassName('touch-zone');
+    for (let i=0; i<touchZones.length; i++) {
+        touchZones[i].addEventListener('mousemove', manualmousemove, false);
+        touchZones[i].addEventListener('mouseout', manualmouseout, false);
+        touchZones[i].addEventListener('touchmove', manualtouchmove, false);
+        touchZones[i].addEventListener('touchend', manualtouchend, false);
+    }
+    /* better
+    touchZones.forEach( (elem) => {
+        elem.addEventListener('mousemove', manualmousemove, false);
+        elem.addEventListener('mouseout', manualmouseout, false);
+        elem.addEventListener('touchmove', manualtouchmove, false);
+        elem.addEventListener('touchend', manualtouchend, false);
+
+     };*/
+
+
+    let modeSelectors = document.querySelectorAll("input.mode");
+    modeSelectors.forEach( function(elem){
+        elem.addEventListener('change', inputModeChange);
+    });
+}
+
+
 initPosition();
-initInteractive();
