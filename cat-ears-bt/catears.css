@@ -1,0 +1,93 @@
+html, body {
+  background: -webkit-linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
+  background: -moz-linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
+  background: linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
+  background-size: 10px 10px;
+}
+#main {
+  margin-bottom: 2em;
+  vertical-align:middle;
+}
+.page-header {
+  border-bottom-color: #b0b4bc;
+  font-size: 200%;
+  text-align:center;
+}
+.ios-dl .legend {
+  display: block;
+  padding: 0;
+  margin: 20px 0px 0px;
+  font-size: 21px;
+  line-height: 40px;
+  color: #8B91A5;
+  font-weight: bold;
+}
+.ios-dl .definition-group {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #b0b4bc;
+  box-shadow: 0 1px 1px 0 white, 0 1px 1px 0 #d9dbdf inset;
+}
+.ios-dl dl {
+  padding: 1em;
+  margin: 0px;
+  background: transparent;
+  border-top: 1px solid #d9dbdf;
+}
+.ios-dl dl:first-child {
+  border: none;
+}
+.ios-dl dt {
+  text-align: center;
+  font-size: 250%;
+  font-weight: bold;
+}
+#buttonConnect {
+  text-align: center;
+  font-size: 250%;
+}
+
+#manual-move {
+  columns: 2 auto;
+  background: gold;
+  text-align: center;
+  display: inline-block;
+}
+.square {
+  width: 90vmin;
+  height: 90vmin;
+  background: grey;
+  text-align: center;
+  float: right;
+}
+.touch-zone {
+	touch-action = none;
+}
+/*div.square2 {
+  width: 100%;
+  background: grey;
+}
+div.square2:after {
+    content: "";
+    display: block;
+    padding-bottom : 100%;
+    margin : 2%;
+    background: white;
+}
+*/
+a:hover, a:visited, a:link, a:active
+{
+  text-decoration: none;
+  display:block;
+  width:100%;
+  /*height:100%;*/
+  color:  #A0A0A0;
+  font-size: 150%
+}
+img {
+  vertical-align:middle;
+}
+
+#debug {
+  font-size: xx-large;
+}
