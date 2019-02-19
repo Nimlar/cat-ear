@@ -134,17 +134,45 @@ function initSensor() {
         sensor.onreading = () => { 
                 var debug_div = document.querySelector("#debug");
                 let vect = sensor.quaternion;
-                let demi_theta = Math.acos(vect[3]);
-                let x = vect[0] / Math.sin(demi_theta);
-                let y = vect[1] / Math.sin(demi_theta);
-                let z = vect[2] / Math.sin(demi_theta);
+                let q0 = vect[3];
+                let q1 = vect[0];
+                let q2 = vect[1];
+                let q3 = vect[2];
+/*                let demi_theta = Math.acos(q3);
+                let x = q1 / Math.sin(demi_theta);
+                let y = q2 / Math.sin(demi_theta);
+                let z = q3 / Math.sin(demi_theta);
                 let mvt = "manual:" + y*100 + ":"
                             + x*100 + ":"
                             + y*100 + ":"
                             + y*100 ;
                 send_str(mvt);
+*/
+                /* get roll, pitch, yaw */
+                let sinr_cosp = 2 * (q0*q1 + q2*q3);
+                let cosr_cosp = 1 - 2 * (q1*q1 + q2*q2);
+                let roll = Math.atan2(sinr_cosp, cosr_cosp);
 
-                debug_div.innerHTML = "x=" + x + "<br>y=" + y + "<br>z=" + z + "<br>theta" + 2*demi_theta + "<br>"+  sensor.quaternion;
+                let sinp = 2 * (q0*q2 - q3*q1);
+                let pitch;
+                if (sinp >=1)
+                    pitch = Math.pi / 2 ;
+                else if (sinp <= -1)
+                    pitch = - Math.pi / 2;
+                else
+                    pitch = Math.asin(sinp);
+
+                let siny_cosp = 1 - 2 * (q0*q3 + q1*q2);
+                let cosy_cosp = 1 - 2 * (q2*q2 + q3*q3);
+                let yaw = Math.atan2(siny_cosp, cosy_cosp);
+
+                debug_div.innerHTML = "roll=" + roll +
+                                      " 100*sin(roll)=" + Math.round(100 * Math.sin(roll)) +
+                                      "<br>pitch=" + pitch +
+                                      " 100*sin(pitch)=" + Math.round(100*Math.sin(pitch)) +
+                                      "<br>yaw=" + yaw +
+                                      " 100*cos(yaw)=" + Math.round(100*Math.cos(yaw)) +
+                                      "<br>"+  sensor.quaternion;
                 };
         sensor.onerror = (event) => {
                 if (event.error.name == 'NotReadableError') {
@@ -153,7 +181,7 @@ function initSensor() {
         }
 }
 
-function init_position() {
+function initPosition() {
 virtual_pos = {"left" : { "azi" : 0, "alt" : 0},
                   "right" : { "azi" : 0, "alt" : 0} };
 real_pos =  {"left" : { "azi" : 0, "alt" : 0},
@@ -162,7 +190,6 @@ prev_pos =  {"left" : { "azi" : 0, "alt" : 0},
                   "right" : { "azi" : 0, "alt" : 0} };
 }
 
-init_position();
 
 function definepoint(pos, azi, alt, set)
 {
@@ -198,7 +225,7 @@ buttonConnect.addEventListener('click', event => {
         var movelist_div = document.querySelector("#movelist");
         for(var key in movement_list) {
             elem = appendHtml(movelist_div, '<dt><a href="#'+ key +'" class="move">'+ movement_list[key] +'<\/a><\/dt>', "dl", {"class" : "dl-horizontal"});
-            elem.addEventListener('click', event => {init_position(); send_info(event);}, false);
+            elem.addEventListener('click', event => {initPosition(); send_info(event);}, false);
         }
     })
     .catch(error => { console.log(error) });
@@ -261,6 +288,11 @@ function manualtouchmove(event) {
 
 function inputModeChange(event) {
     console.log(event.target.value);
+    if (event.target.value == "accelerometer") {
+        sensor.start();
+    } else {
+        sensor.stop();
+    }
 }
 
 
@@ -349,88 +381,5 @@ function initInteractive() {
 
 }
 
-initInteractive() {
-    let touchZones = document.getElementsByClassName('touch-zone');
-    for (var i=0; i<touchZones.length; i++) {
-        touchZones[i].addEventListener('mousemove', manualmousemove, false);
-        touchZones[i].addEventListener('mouseout', manualmouseout, false);
-        touchZones[i].addEventListener('touchmove', manualtouchmove, false);
-        touchZones[i].addEventListener('touchend', manualtouchend, false);
-    }
-    /* better
-    touchZones.forEach( (elem) => {
-        elem.addEventListener('mousemove', manualmousemove, false);
-        elem.addEventListener('mouseout', manualmouseout, false);
-        elem.addEventListener('touchmove', manualtouchmove, false);
-        elem.addEventListener('touchend', manualtouchend, false);
-
-     };*/
-
-
-    let modeSelectors = document.querySelectorAll("input.mode");
-    modeSelectors.forEach( function(elem){
-        elem.addEventListener('change', inputModeChange);
-    });
-
-    var pos_inter_id = setInterval( _ => {
-        let accel = 5;
-
-        if (is_position_absolute()) {
-            real_pos.right.azi = virtual_pos.right.azi;
-            real_pos.right.alt = virtual_pos.right.alt;
-            real_pos.left.azi = virtual_pos.left.azi;
-            real_pos.left.alt = virtual_pos.left.alt;
-        } else if (is_position_relative()){
-            real_pos.right.azi += Math.round(virtual_pos.right.azi/accel);
-            if (real_pos.right.azi > 100)
-                real_pos.right.azi = 100;
-            if (real_pos.right.azi < -100)
-                real_pos.right.azi = -100;
-            real_pos.right.alt += Math.round(virtual_pos.right.alt/accel);
-            if (real_pos.right.alt > 100)
-                real_pos.right.alt = 100;
-            if (real_pos.right.alt < -100)
-                real_pos.right.alt = -100;
-            real_pos.left.azi += Math.round(virtual_pos.left.azi/accel);
-            if (real_pos.left.azi > 100)
-                real_pos.left.azi = 100;
-            if (real_pos.left.azi < -100)
-                real_pos.left.azi = -100;
-            real_pos.left.alt += Math.round(virtual_pos.left.alt/accel);
-            if (real_pos.left.alt > 100)
-                real_pos.left.alt = 100;
-            if (real_pos.left.alt < -100)
-                real_pos.left.alt = -100;
-        } else {
-            /* Nothing */
-        }
-
-
-        if ((prev_pos.right.azi != real_pos.right.azi) ||
-            (prev_pos.right.alt != real_pos.right.alt) ||
-            (prev_pos.left.azi != real_pos.left.azi) ||
-            (prev_pos.left.alt != real_pos.left.alt)) {
-
-            definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
-            definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
-
-            prev_pos.right.azi = real_pos.right.azi;
-            prev_pos.right.alt = real_pos.right.alt;
-            prev_pos.left.azi = real_pos.left.azi;
-            prev_pos.left.alt = real_pos.left.alt;
-
-            let mvt = "manual:" + real_pos.left.azi + ":"
-                                + real_pos.left.alt + ":"
-                                + real_pos.right.azi + ":"
-                                + real_pos.right.alt ;
-            send_str(mvt);
-            //console.log(mvt);
-
-            definepoint("right", real_pos.right.azi, real_pos.right.alt, true);
-            definepoint("left", real_pos.left.azi, real_pos.left.alt, true);
-
-        }
-    }, 1*1000);
-
-}
+initPosition();
 initInteractive();
