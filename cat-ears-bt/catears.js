@@ -132,49 +132,61 @@ function initSensor() {
         sensor = new RelativeOrientationSensor(options);
         //sensor = new AbsoluteOrientationSensor(options);
         sensor.onreading = () => { 
-                let debug_div = document.querySelector("#debug");
-                let vect = sensor.quaternion;
-                let q0 = vect[3];
-                let q1 = vect[0];
-                let q2 = vect[1];
-                let q3 = vect[2];
+            let debug_div = document.querySelector("#debug");
+            let vect = sensor.quaternion;
+            let q0 = vect[3];
+            let q1 = vect[0];
+            let q2 = vect[1];
+            let q3 = vect[2];
 /*                let demi_theta = Math.acos(q3);
-                let x = q1 / Math.sin(demi_theta);
-                let y = q2 / Math.sin(demi_theta);
-                let z = q3 / Math.sin(demi_theta);
-                let mvt = "manual:" + y*100 + ":"
-                            + x*100 + ":"
-                            + y*100 + ":"
-                            + y*100 ;
-                send_str(mvt);
+            let x = q1 / Math.sin(demi_theta);
+            let y = q2 / Math.sin(demi_theta);
+            let z = q3 / Math.sin(demi_theta);
+            let mvt = "manual:" + y*100 + ":"
+                        + x*100 + ":"
+                        + y*100 + ":"
+                        + x*100 ;
+            send_str(mvt);
 */
-                /* get roll, pitch, yaw */
-                let sinr_cosp = 2 * (q0*q1 + q2*q3);
-                let cosr_cosp = 1 - 2 * (q1*q1 + q2*q2);
-                let roll = Math.atan2(sinr_cosp, cosr_cosp);
+            /* get roll, pitch, yaw */
+            let sinr_cosp = 2 * (q0*q1 + q2*q3);
+            let cosr_cosp = 1 - 2 * (q1*q1 + q2*q2);
+            let roll = Math.atan2(sinr_cosp, cosr_cosp);
 
-                let sinp = 2 * (q0*q2 - q3*q1);
-                let pitch;
-                if (sinp >=1)
-                    pitch = Math.pi / 2 ;
-                else if (sinp <= -1)
-                    pitch = - Math.pi / 2;
-                else
-                    pitch = Math.asin(sinp);
+            let sinp = 2 * (q0*q2 - q3*q1);
+            let pitch;
+            if (sinp >=1)
+                pitch = Math.pi / 2 ;
+            else if (sinp <= -1)
+                pitch = - Math.pi / 2;
+            else
+                pitch = Math.asin(sinp);
 
-                let siny_cosp = 1 - 2 * (q0*q3 + q1*q2);
-                let cosy_cosp = 1 - 2 * (q2*q2 + q3*q3);
-                let yaw = Math.atan2(siny_cosp, cosy_cosp);
+            let siny_cosp = 1 - 2 * (q0*q3 + q1*q2);
+            let cosy_cosp = 1 - 2 * (q2*q2 + q3*q3);
+            let yaw = Math.atan2(siny_cosp, cosy_cosp);
 
-                debug_div.innerHTML = "roll=" + roll +
-                                      " 100*sin(roll)=" + Math.round(100 * Math.sin(roll)) +
-                                      "<br>pitch=" + pitch +
-                                      " 100*sin(pitch)=" + Math.round(100*Math.sin(pitch)) +
-                                      "<br>yaw=" + yaw +
-                                      " 100*cos(yaw)=" + Math.round(100*Math.cos(yaw)) +
-                                      "<br> 100*sin(pitch + yaw)=" + Math.round(100*Math.sin(pitch + yaw)) +
-                                      "<br>"+  sensor.quaternion;
-                };
+            let lazi, lalt, razi, ralt;
+
+            lazi = Math.round(100 * Math.sin(roll));
+            razi = Math.round(100 * Math.sin(roll + yaw));
+            ralt = Math.round(100 * Math.sin(pitch));
+            lalt = Math.round(100 * Math.sin(pitch));
+            let mvt = "manual:" + lazi + ":"
+                                + lalt + ":"
+                                + razi + ":"
+                                + lazi;
+
+            debug_div.innerHTML = "roll=" + roll +
+                                  " 100*sin(roll)=" + Math.round(100 * Math.sin(roll)) +
+                                  "<br>pitch=" + pitch +
+                                  " 100*sin(pitch)=" + Math.round(100*Math.sin(pitch)) +
+                                  "<br>yaw=" + yaw +
+                                  " 100*cos(yaw)=" + Math.round(100*Math.cos(yaw)) +
+                                  "<br> 100*sin(pitch + yaw)=" + Math.round(100*Math.sin(pitch + yaw)) +
+                                  "<br>"+  mvt ;
+            send_str(mvt);
+        };
         sensor.onerror = (event) => {
                 if (event.error.name == 'NotReadableError') {
                         console.log("Sensor is not available.");
