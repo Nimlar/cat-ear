@@ -238,9 +238,8 @@ buttonConnect.addEventListener('click', event => {
         let movelist_div = document.querySelector("#movelist");
         for(let key in movement_list) {
             elem = appendHtml(movelist_div, '<dt><a href="#'+ key +'" class="move">'+ movement_list[key] +'<\/a><\/dt>', "dl", {"class" : "dl-horizontal"});
-            elem.addEventListener('click', event => {initPosition(); send_info(event);}, false);
+            elem.addEventListener('click', event => {send_info(event);}, false);
         }
-        initInteractive();
     })
     .catch(error => { console.log(error) });
 });
@@ -377,6 +376,7 @@ function inputModeChange(event) {
     let padElem = document.getElementById('manual-move');
 
     if (event.target.value == "accelerometer") {
+        initPosition();
         sensor.start();
     } else {
         sensor.stop();
@@ -389,6 +389,7 @@ function inputModeChange(event) {
         stopPadInteraction();
     }
     if (event.target.value == "preprog" ) {
+        initPosition();
         /* maybe should use display = "none" */
         preprogElem.style.visibility = "visible" ;
     } else {
