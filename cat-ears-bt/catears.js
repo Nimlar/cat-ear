@@ -89,6 +89,7 @@ let movement_list = {
 }
 function send_str(s)
 {
+    console.log(s);
     let encoder = new TextEncoder();
     let buffer = encoder.encode(s);
     catEars.device && catEars.writeInfo(buffer);
@@ -96,7 +97,8 @@ function send_str(s)
 
 function send_info(e)
 {
-    let mvt = e.target.attributes["href"].nodeValue.substring(1);
+    let elem_a = e.target.querySelector("a") || e.target;
+    let mvt = elem_a.getAttribute("href").substring(1);
     send_str(mvt);
 }
 
