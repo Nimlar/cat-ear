@@ -1,7 +1,6 @@
 //from https://beaufortfrancois.github.io/sandbox/web-bluetooth/generator/
 const params = new URLSearchParams(new URL(window.location.href).search.slice(1));
-const debug = !!Number(params.get("debug"));
-
+const mydebug = !!Number(params.get("debug"));
 
 class CatEars {
     constructor() {
@@ -233,25 +232,28 @@ function is_position_relative() {
 function is_position_accelerometer() {
     return document.querySelector('#accelerometer').checked ;
 }
+
+function genMoveList() {
+    let movelist_div = document.querySelector("#movelist");
+    for(let key in movement_list) {
+        let elem = appendHtml(movelist_div, '<dt><a href="#'+ key +'" class="move">'+ movement_list[key] +'<\/a><\/dt>', "dl", {"class" : "dl-horizontal"});
+        elem.addEventListener('click', event => {send_info(event);}, false);
+    }
+}
 let buttonConnect = document.getElementById('buttonConnect');
-buttonConnect.addEventListener('click', event => {
-    catEars.request()
-    .then(_ => catEars.connect())
-    .then(_ => { buttonConnect.style.visibility = "hidden" ;} )
-    .then(_ => {
-        let movelist_div = document.querySelector("#movelist");
-        for(let key in movement_list) {
-            elem = appendHtml(movelist_div, '<dt><a href="#'+ key +'" class="move">'+ movement_list[key] +'<\/a><\/dt>', "dl", {"class" : "dl-horizontal"});
-            elem.addEventListener('click', event => {send_info(event);}, false);
-        }
-    })
-    .catch(error => {
-        console.log(error);
-        if (debug) {
-            initInteractive();
-        }
+if (!mydebug) {
+    buttonConnect.addEventListener('click', event => {
+        catEars.request()
+        .then(_ => catEars.connect())
+        .then(_ => { buttonConnect.style.display = "none" ;} )
+        .then(_ => genMoveList())
+        .catch(error => { console.log(error); });
     });
-});
+} else {
+    buttonConnect.style.display = "none" ;
+    genMoveList();
+    initInteractive();
+}
 function manualmouseout(event) {
     event.preventDefault();
     if (event.target.id.includes("right")) {
@@ -380,7 +382,7 @@ function stopPadInteraction() {
     definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
 }
 function inputModeChange(event) {
-    console.log(event.target.value);
+    //console.log(event.target.value);
     let preprogElem = document.getElementById('movelist');
     let padElem = document.getElementById('manual-move');
 
@@ -390,19 +392,19 @@ function inputModeChange(event) {
     } else {
         sensor.stop();
     }
-    if (event.target.value == "absolute") || (event.target.value == "relative") {
-        padElem.style.visibility = "visible" ;
+    if ((event.target.value == "absolute") || (event.target.value == "relative")) {
+        padElem.style.display = "inline-block" ;
         startPadInteraction(event.target.value);
     } else {
-        padElem.style.visibility = "collapse" ;
+        padElem.style.display = "none" ;
         stopPadInteraction();
     }
     if (event.target.value == "preprog" ) {
         initPosition();
         /* maybe should use display = "none" */
-        preprogElem.style.visibility = "visible" ;
+        preprogElem.style.display = "block" ;
     } else {
-        preprogElem.style.visibility = "collapse" ;
+        preprogElem.style.display = "none" ;
     }
 
 }

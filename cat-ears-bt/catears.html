@@ -21,8 +21,6 @@
   <div class="row-fluid">
     <div class="span12">
       <div class="main ios-dl">
-        <div class="definition-group" id=movelist>
-        </div>
         <input type="radio" name="mode" class="mode" id="preprog" value="preprog" checked>
         <label for="preprog">Preprogrammed moves</label>
         <input type="radio" name="mode" class="mode" id="absolute" value="absolute" >
@@ -32,12 +30,13 @@
         <input type="radio" name="mode" class="mode" id="accelerometer" value="accelerometer" >
         <label for="acceleromter">Accelerometer move</label>
         <div id="debug"></div>
-        <div id="manual-move">
+        <div id="manual-move" style="display:none;">
            <canvas width="200" height="200" class="square touch-zone" id="left-ear">
            </canvas>
            <canvas width="200" height="200" class="square touch-zone" id="right-ear" >
            </canvas>
         </div>
+        <div class="definition-group" id="movelist"> </div>
       </div>
     </div>
   </div>
