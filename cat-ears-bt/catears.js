@@ -1,4 +1,8 @@
 //from https://beaufortfrancois.github.io/sandbox/web-bluetooth/generator/
+const params = new URLSearchParams(new URL(window.location.href).search.slice(1));
+const debug = !!Number(params.get("debug"));
+
+
 class CatEars {
     constructor() {
         this.device = null;
@@ -241,7 +245,12 @@ buttonConnect.addEventListener('click', event => {
             elem.addEventListener('click', event => {send_info(event);}, false);
         }
     })
-    .catch(error => { console.log(error) });
+    .catch(error => {
+        console.log(error);
+        if (debug) {
+            initInteractive();
+        }
+    });
 });
 function manualmouseout(event) {
     event.preventDefault();
