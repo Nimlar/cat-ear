@@ -190,6 +190,17 @@ function initSensor() {
                                   " 100*cos(yaw)=" + Math.round(100*Math.cos(yaw)) +
                                   "<br> 100*sin(pitch + yaw)=" + Math.round(100*Math.sin(pitch + yaw)) +
                                   "<br>"+  mvt ;
+            if (mydebug) {
+                definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
+                definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
+                prev_pos.right.azi = razi;
+                prev_pos.right.alt = ralt;
+                prev_pos.left.azi = lazi;
+                prev_pos.left.alt = lalt;
+                definepoint("right", razi, ralt, true);
+                definepoint("left", lazi, lalt, true);
+            }
+
             send_str(mvt);
         };
         sensor.onerror = (event) => {
@@ -390,9 +401,17 @@ function inputModeChange(event) {
 
     if (event.target.value == "accelerometer") {
         initPosition();
+        if(mydebug) {
+            padElem.style.display = "inline-block" ;
+        }
         sensor.start();
     } else {
         sensor.stop();
+        if(mydebug) {
+            padElem.style.display = "none" ;
+            definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
+            definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
+        }
     }
     if ((event.target.value == "absolute") || (event.target.value == "relative")) {
         padElem.style.display = "inline-block" ;
