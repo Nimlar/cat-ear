@@ -132,6 +132,10 @@ if (navigator.permissions) {
         console.log("No Permissions API, still try to start app.");
         initSensor();
 }
+//TODELETE.
+//function clamp(min, val, max) {
+//    return Math.max(min, Math.min(val, max));
+//}
 function initSensor() {
         const options = { frequency: 60 };
         sensor = new RelativeOrientationSensor(options);
@@ -173,8 +177,8 @@ function initSensor() {
 
             let lazi, lalt, razi, ralt;
 
-            lazi = Math.round(100 * Math.sin(roll));
-            razi = Math.round(100 * Math.sin(roll + yaw));
+            lazi = Math.round(100 * Math.sin(Math.max(roll - yaw/2, -Math.PI)));
+            razi = Math.round(100 * Math.sin(Math.min(roll + yaw/2,  Math.PI)));
             ralt = Math.round(100 * Math.sin(pitch));
             lalt = Math.round(100 * Math.sin(pitch));
             let mvt = "manual:" + lazi + ":"
