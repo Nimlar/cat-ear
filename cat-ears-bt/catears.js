@@ -184,7 +184,7 @@ function initSensor() {
             let mvt = "manual:" + lazi + ":"
                                 + lalt + ":"
                                 + razi + ":"
-                                + lazi;
+                                + lalt;
 
             debug_div.innerHTML = "roll=" + roll +
                                   " 100*sin(roll)=" + Math.round(100 * Math.sin(roll)) +
@@ -263,7 +263,7 @@ if (!mydebug) {
         catEars.request()
         .then(_ => catEars.connect())
         .then(_ => { buttonConnect.style.display = "none" ;} )
-        .then(_ => genMoveList())
+        .then(_ => {initInteractive(); genMoveList(); })
         .catch(error => { console.log(error); });
     });
 } else {
