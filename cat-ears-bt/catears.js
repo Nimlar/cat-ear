@@ -301,7 +301,7 @@ function manualmousemove(event) {
 }
 function manualtouchend(event) {
     event.preventDefault();
-    if (event.targetTouches[0].target.id.includes("right")) {
+    if (event.changedTouches[0].target.id.includes("right")) {
         virtual_pos.right.azi = 0;
         virtual_pos.right.alt = 0;
     } else {
@@ -312,10 +312,10 @@ function manualtouchend(event) {
 }
 function manualtouchmove(event) {
     event.preventDefault();
-    offLeft = event.target.offsetLeft;
-    offHeight = event.target.offsetHeight;
-    offTop = event.target.offsetTop;
-    offWidth = event.target.offsetWidth;
+    let offLeft = event.target.offsetLeft;
+    let offHeight = event.target.offsetHeight;
+    let offTop = event.target.offsetTop;
+    let offWidth = event.target.offsetWidth;
 
     if (event.targetTouches[0].target.id.includes("right")) {
         virtual_pos.right.azi = -100 + Math.round(200*(event.targetTouches[0].pageX - offLeft)/(offWidth));
@@ -443,15 +443,6 @@ function initInteractive() {
         touchZones[i].addEventListener('touchmove', manualtouchmove, false);
         touchZones[i].addEventListener('touchend', manualtouchend, false);
     }
-    /* better
-    touchZones.forEach( (elem) => {
-        elem.addEventListener('mousemove', manualmousemove, false);
-        elem.addEventListener('mouseout', manualmouseout, false);
-        elem.addEventListener('touchmove', manualtouchmove, false);
-        elem.addEventListener('touchend', manualtouchend, false);
-
-     };*/
-
 
     let modeSelectors = document.querySelectorAll("input.mode");
     modeSelectors.forEach( function(elem){
