@@ -147,16 +147,7 @@ function initSensor() {
             let q1 = vect[0];
             let q2 = vect[1];
             let q3 = vect[2];
-/*                let demi_theta = Math.acos(q3);
-            let x = q1 / Math.sin(demi_theta);
-            let y = q2 / Math.sin(demi_theta);
-            let z = q3 / Math.sin(demi_theta);
-            let mvt = "manual:" + y*100 + ":"
-                        + x*100 + ":"
-                        + y*100 + ":"
-                        + x*100 ;
-            send_str(mvt);
-*/
+
             /* get roll, pitch, yaw */
             let sinr_cosp = 2 * (q0*q1 + q2*q3);
             let cosr_cosp = 1 - 2 * (q1*q1 + q2*q2);
@@ -175,16 +166,10 @@ function initSensor() {
             let cosy_cosp = 1 - 2 * (q2*q2 + q3*q3);
             let yaw = Math.atan2(siny_cosp, cosy_cosp);
 
-            let lazi, lalt, razi, ralt;
-
-            lazi = Math.round(100 * Math.sin(Math.max(roll - yaw/2, -Math.PI)));
-            razi = Math.round(100 * Math.sin(Math.min(roll + yaw/2,  Math.PI)));
-            ralt = Math.round(100 * Math.sin(pitch));
-            lalt = Math.round(100 * Math.sin(pitch));
-            let mvt = "manual:" + lazi + ":"
-                                + lalt + ":"
-                                + razi + ":"
-                                + lalt;
+            virtual_pos.left.azi = Math.round(100 * Math.sin(Math.max(pitch - yaw/2, -Math.PI)));
+            virtual_pos.right.azi = Math.round(100 * Math.sin(Math.min(pitch + yaw/2,  Math.PI)));
+            virtual_pos.right.alt = Math.round(100 * Math.sin(roll));
+            virtual_pos.left.alt = Math.round(100 * Math.sin(roll));
 
             debug_div.innerHTML = "roll=" + roll +
                                   " 100*sin(roll)=" + Math.round(100 * Math.sin(roll)) +
@@ -193,19 +178,10 @@ function initSensor() {
                                   "<br>yaw=" + yaw +
                                   " 100*cos(yaw)=" + Math.round(100*Math.cos(yaw)) +
                                   "<br> 100*sin(pitch + yaw)=" + Math.round(100*Math.sin(pitch + yaw)) +
-                                  "<br>"+  mvt ;
-            if (mydebug) {
-                definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
-                definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
-                prev_pos.right.azi = razi;
-                prev_pos.right.alt = ralt;
-                prev_pos.left.azi = lazi;
-                prev_pos.left.alt = lalt;
-                definepoint("right", razi, ralt, true);
-                definepoint("left", lazi, lalt, true);
-            }
-
-            send_str(mvt);
+                                  "<br>manual:" + virtual_pos.left.azi + ":"
+                                + virtual_pos.left.alt + ":"
+                                + virtual_pos.right.azi + ":"
+                                + virtual_pos.right.alt;
         };
         sensor.onerror = (event) => {
                 if (event.error.name == 'NotReadableError') {
@@ -215,6 +191,7 @@ function initSensor() {
 }
 
 function initPosition() {
+
 virtual_pos = {"left" : { "azi" : 0, "alt" : 0},
                   "right" : { "azi" : 0, "alt" : 0} };
 real_pos =  {"left" : { "azi" : 0, "alt" : 0},
@@ -222,12 +199,25 @@ real_pos =  {"left" : { "azi" : 0, "alt" : 0},
 prev_pos =  {"left" : { "azi" : 0, "alt" : 0},
                   "right" : { "azi" : 0, "alt" : 0} };
 }
+function cleanLastPosition() {
+	/* delete previous saved position */
+	definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
+	definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
+}
 
 
 function definepoint(pos, azi, alt, set)
 {
     let canvas = document.getElementById(pos+'-ear');
+    if (!canvas) {
+        console.log("no canvas");
+        return;
+    }
     let ctx = canvas.getContext('2d');
+    if (!ctx) {
+        console.log("no canvas");
+        return;
+    }
 
     let x = (azi + 100)
     let y = (alt + 100)
@@ -263,13 +253,13 @@ if (!mydebug) {
         catEars.request()
         .then(_ => catEars.connect())
         .then(_ => { buttonConnect.style.display = "none" ;} )
-        .then(_ => {initInteractive(); genMoveList(); })
+        .then(_ => {initSelectors(); genMoveList(); })
         .catch(error => { console.log(error); });
     });
 } else {
     buttonConnect.style.display = "none" ;
     genMoveList();
-    initInteractive();
+    initSelectors();
 }
 function manualmouseout(event) {
     event.preventDefault();
@@ -328,114 +318,128 @@ function manualtouchmove(event) {
 }
 
 let pos_inter_id;
-function startPadInteraction(position) {
-    /* may chnage the is_position_*() by
-     * position == * */
-    pos_inter_id = setInterval( _ => {
-        let accel = 5;
+function updateEarsPosition() {
+    let accel = 5;
+    console.log("ici");
+    if (is_position_absolute()) {
+        real_pos.right.azi = virtual_pos.right.azi;
+        real_pos.right.alt = virtual_pos.right.alt;
+        real_pos.left.azi = virtual_pos.left.azi;
+        real_pos.left.alt = virtual_pos.left.alt;
+    } else if (is_position_relative()){
+        real_pos.right.azi += Math.round(virtual_pos.right.azi/accel);
+        if (real_pos.right.azi > 100)
+            real_pos.right.azi = 100;
+        if (real_pos.right.azi < -100)
+            real_pos.right.azi = -100;
+        real_pos.right.alt += Math.round(virtual_pos.right.alt/accel);
+        if (real_pos.right.alt > 100)
+            real_pos.right.alt = 100;
+        if (real_pos.right.alt < -100)
+            real_pos.right.alt = -100;
+        real_pos.left.azi += Math.round(virtual_pos.left.azi/accel);
+        if (real_pos.left.azi > 100)
+            real_pos.left.azi = 100;
+        if (real_pos.left.azi < -100)
+            real_pos.left.azi = -100;
+        real_pos.left.alt += Math.round(virtual_pos.left.alt/accel);
+        if (real_pos.left.alt > 100)
+            real_pos.left.alt = 100;
+        if (real_pos.left.alt < -100)
+            real_pos.left.alt = -100;
+    }else if (is_position_accelerometer()){
+        real_pos.right.azi = virtual_pos.right.azi;
+        real_pos.right.alt = virtual_pos.right.alt;
+        real_pos.left.azi = virtual_pos.left.azi;
+        real_pos.left.alt = virtual_pos.left.alt;
+    console.log("la");
+    } else {
+        console.log("in interval loop but should'nt")
+        return
+    }
 
-        if (is_position_absolute()) {
-            real_pos.right.azi = virtual_pos.right.azi;
-            real_pos.right.alt = virtual_pos.right.alt;
-            real_pos.left.azi = virtual_pos.left.azi;
-            real_pos.left.alt = virtual_pos.left.alt;
-        } else if (is_position_relative()){
-            real_pos.right.azi += Math.round(virtual_pos.right.azi/accel);
-            if (real_pos.right.azi > 100)
-                real_pos.right.azi = 100;
-            if (real_pos.right.azi < -100)
-                real_pos.right.azi = -100;
-            real_pos.right.alt += Math.round(virtual_pos.right.alt/accel);
-            if (real_pos.right.alt > 100)
-                real_pos.right.alt = 100;
-            if (real_pos.right.alt < -100)
-                real_pos.right.alt = -100;
-            real_pos.left.azi += Math.round(virtual_pos.left.azi/accel);
-            if (real_pos.left.azi > 100)
-                real_pos.left.azi = 100;
-            if (real_pos.left.azi < -100)
-                real_pos.left.azi = -100;
-            real_pos.left.alt += Math.round(virtual_pos.left.alt/accel);
-            if (real_pos.left.alt > 100)
-                real_pos.left.alt = 100;
-            if (real_pos.left.alt < -100)
-                real_pos.left.alt = -100;
-        } else {
-            /* Nothing */
-        }
 
+    if ((prev_pos.right.azi != real_pos.right.azi) ||
+        (prev_pos.right.alt != real_pos.right.alt) ||
+        (prev_pos.left.azi != real_pos.left.azi) ||
+        (prev_pos.left.alt != real_pos.left.alt)) {
 
-        if ((prev_pos.right.azi != real_pos.right.azi) ||
-            (prev_pos.right.alt != real_pos.right.alt) ||
-            (prev_pos.left.azi != real_pos.left.azi) ||
-            (prev_pos.left.alt != real_pos.left.alt)) {
+        definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
+        definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
 
-            definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
-            definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
+        prev_pos.right.azi = real_pos.right.azi;
+        prev_pos.right.alt = real_pos.right.alt;
+        prev_pos.left.azi = real_pos.left.azi;
+        prev_pos.left.alt = real_pos.left.alt;
 
-            prev_pos.right.azi = real_pos.right.azi;
-            prev_pos.right.alt = real_pos.right.alt;
-            prev_pos.left.azi = real_pos.left.azi;
-            prev_pos.left.alt = real_pos.left.alt;
+        let mvt = "manual:" + real_pos.left.azi + ":"
+                            + real_pos.left.alt + ":"
+                            + real_pos.right.azi + ":"
+                            + real_pos.right.alt ;
+        send_str(mvt);
+        //console.log(mvt);
 
-            let mvt = "manual:" + real_pos.left.azi + ":"
-                                + real_pos.left.alt + ":"
-                                + real_pos.right.azi + ":"
-                                + real_pos.right.alt ;
-            send_str(mvt);
-            //console.log(mvt);
+        definepoint("right", real_pos.right.azi, real_pos.right.alt, true);
+        definepoint("left", real_pos.left.azi, real_pos.left.alt, true);
 
-            definepoint("right", real_pos.right.azi, real_pos.right.alt, true);
-            definepoint("left", real_pos.left.azi, real_pos.left.alt, true);
-
-        }
-    }, 1*1000);
+    }
 }
+var selected_mode="preprog";
 
-function stopPadInteraction() {
-    clearInterval(pos_inter_id);
-    /* delete previous saved position */
-    definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
-    definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
-}
 function inputModeChange(event) {
     //console.log(event.target.value);
     let preprogElem = document.getElementById('movelist');
     let padElem = document.getElementById('manual-move');
+    let interval = 1*1000;
+    console.log(event.target.value);
 
-    if (event.target.value == "accelerometer") {
-        initPosition();
-        if(mydebug) {
-            padElem.style.display = "inline-block" ;
-        }
-        sensor.start();
-    } else {
+    switch(selected_mode) {
+    case "accelerometer":
         sensor.stop();
-        if(mydebug) {
-            padElem.style.display = "none" ;
-            definepoint("right", prev_pos.right.azi, prev_pos.right.alt, false);
-            definepoint("left", prev_pos.left.azi, prev_pos.left.alt, false);
-        }
+        clearInterval(pos_inter_id);
+        padElem.style.display = "none" ;
+        break;
+    case "absolute":
+    case "relative":
+        padElem.style.display = "none" ;
+        clearInterval(pos_inter_id);
+        stopPadInteraction();
+        break;
+    case "preprog":
+        preprogElem.style.display = "none" ;
+        break;
+    default:
+        break;
     }
-    if ((event.target.value == "absolute") || (event.target.value == "relative")) {
+
+    selected_mode = event.target.value;
+
+    switch(selected_mode) {
+    case "accelerometer":
+        cleanLastPosition();
+        initPosition();
+        padElem.style.display = "inline-block" ;
+        pos_inter_id = setInterval(updateEarsPosition, interval);
+        sensor.start();
+        break;
+    case "absolute":
+    case "relative":
         padElem.style.display = "inline-block" ;
         startPadInteraction(event.target.value);
-    } else {
-        padElem.style.display = "none" ;
-        stopPadInteraction();
-    }
-    if (event.target.value == "preprog" ) {
+        pos_inter_id = setInterval(updateEarsPosition, interval);
+        break;
+    case "preprog":
+        cleanLastPosition();
         initPosition();
         /* maybe should use display = "none" */
         preprogElem.style.display = "block" ;
-    } else {
-        preprogElem.style.display = "none" ;
+    default:
+        break;
     }
-
 }
 
 
-function initInteractive() {
+function startPadInteraction() {
     let touchZones = document.getElementsByClassName('touch-zone');
     for (let i=0; i<touchZones.length; i++) {
         touchZones[i].addEventListener('mousemove', manualmousemove, false);
@@ -443,7 +447,17 @@ function initInteractive() {
         touchZones[i].addEventListener('touchmove', manualtouchmove, false);
         touchZones[i].addEventListener('touchend', manualtouchend, false);
     }
-
+}
+function stopPadInteraction() {
+    let touchZones = document.getElementsByClassName('touch-zone');
+    for (let i=0; i<touchZones.length; i++) {
+        touchZones[i].removeEventListener('mousemove', manualmousemove, false);
+        touchZones[i].removeEventListener('mouseout', manualmouseout, false);
+        touchZones[i].removeEventListener('touchmove', manualtouchmove, false);
+        touchZones[i].removeEventListener('touchend', manualtouchend, false);
+    }
+}
+function initSelectors() {
     let modeSelectors = document.querySelectorAll("input.mode");
     modeSelectors.forEach( function(elem){
         elem.addEventListener('change', inputModeChange);

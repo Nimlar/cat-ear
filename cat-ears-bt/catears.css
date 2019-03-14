@@ -4,6 +4,9 @@ html, body {
   background: linear-gradient(left, #e0e3ea 50%, #e3e6ec 50%);
   background-size: 10px 10px;
 }
+label {
+  font-size: xx-large;
+}
 #main {
   margin-bottom: 2em;
   vertical-align:middle;
